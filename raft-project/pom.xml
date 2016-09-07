@@ -36,6 +36,7 @@
     <module>../raft-grpc</module>
     <module>../raft-netty</module>
     <module>../raft-examples</module>
+    <module>../raft-hbase</module>
   </modules>
 
   <properties>
@@ -102,6 +103,7 @@
     <hadoop.version>2.7.2</hadoop.version>
     <jackson.version>1.9.13</jackson.version>
     <log4j.version>1.2.17</log4j.version>
+    <hbase.version>2.0.0-sal-SNAPSHOT</hbase.version>
   </properties>
 
   <dependencyManagement>
@@ -223,6 +225,20 @@
         <artifactId>hadoop-common</artifactId>
         <version>${hadoop.version}</version>
         <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-server</artifactId>
+        <version>${hbase.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-server</artifactId>
+	      <version>${hbase.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
       </dependency>
       <dependency>
         <groupId>commons-logging</groupId>
