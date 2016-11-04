@@ -20,7 +20,11 @@ package org.apache.raft.hbase;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.NavigableMap;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -37,7 +41,6 @@ import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.exceptions.FailedSanityCheckException;
 import org.apache.hadoop.hbase.ipc.RpcCallContext;
 import org.apache.hadoop.hbase.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.protobuf.ResponseConverter;
@@ -50,14 +53,19 @@ import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.RegionAction;
 import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.RegionActionResult;
 import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.ResultOrException;
 import org.apache.hadoop.hbase.regionserver.HRegion;
-import org.apache.hadoop.hbase.regionserver.NoSuchColumnFamilyException;
+import org.apache.hadoop.hbase.regionserver.HRegion.WriteContext;
 import org.apache.hadoop.hbase.regionserver.OperationStatus;
-import org.apache.hadoop.hbase.regionserver.Region;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
+import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.apache.hadoop.hbase.wal.WALKey;
+import org.apache.hadoop.hbase.wal.WALSplitter;
+import org.apache.hadoop.hbase.wal.WALSplitter.MutationReplay;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.hbase.client.MultiRequestMessage;
+import org.apache.raft.hbase.wal.PBWALDataCodec;
 import org.apache.raft.hbase.wal.RaftWAL;
+import org.apache.raft.hbase.wal.WALDataCodec;
+import org.apache.raft.proto.RaftProtos.SMLogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.RaftConfiguration;
@@ -66,13 +74,15 @@ import org.apache.raft.statemachine.BaseStateMachine;
 import org.apache.raft.statemachine.TrxContext;
 
 import com.google.common.collect.Lists;
-import com.google.protobuf.ByteString;
 
 public class RegionStateMachine extends BaseStateMachine {
 
   private final Configuration hbaseConf;
   private final FileSystem fs;
   private HRegion region = null;
+  protected WALDataCodec codec;
+  protected WALDataCodec.Encoder encoder;
+  protected WALDataCodec.Decoder decoder;
 
   public RegionStateMachine() throws IOException {
     this.hbaseConf = HBaseConfiguration.create();
@@ -92,32 +102,93 @@ public class RegionStateMachine extends BaseStateMachine {
 
     this.region = HRegion.createHRegion(hri, rootDir, hbaseConf, htd,
       new RaftWAL(rootDir, hbaseConf, Lists.newArrayList()));
+    this.codec = PBWALDataCodec.create(hbaseConf);
+    this.encoder = codec.getEncoder();
+    this.decoder = codec.getDecoder();
+  }
+
+  private static class BatchContext<T> {
+    private WriteContext<T> writeContext;
+    private RegionActionResult.Builder regionActionResultBuilder;
+
+    BatchContext() {
+      this.regionActionResultBuilder = RegionActionResult.newBuilder();
+    }
+
+    public void setWriteContext(WriteContext<T> writeContext) {
+      this.writeContext = writeContext;
+    }
+
+    public WriteContext<T> getWriteContext() {
+      return writeContext;
+    }
   }
 
   @Override
   public TrxContext startTransaction(RaftClientRequest request) throws IOException {
     Message msg = request.getMessage();
     MultiRequest multi = MultiRequest.parseFrom(msg.getContent());
-    return super.startTransaction(request);
-  }
-
-  @Override
-  public Message applyTransaction(TrxContext trx) throws Exception {
-    RaftClientRequest clientRequest = trx.getClientRequest();
-    ByteString content = clientRequest.getMessage().getContent();
-
-    MultiRequest request = MultiRequest.parseFrom(content);
-
 
     List<CellScannable> cellsToReturn = null;
     MultiResponse.Builder responseBuilder = MultiResponse.newBuilder();
-    RegionActionResult.Builder regionActionResultBuilder = RegionActionResult.newBuilder();
 
+    BatchContext batchContext = new BatchContext();
 
-    for (RegionAction regionAction : request.getRegionActionList()) {
-      doNonAtomicRegionMutation(region, regionAction,
-        regionActionResultBuilder, cellsToReturn);
+    for (RegionAction regionAction : multi.getRegionActionList()) {
+      // TODO: get the region here
+      startNonAtomicRegionMutation(batchContext, region, regionAction);
     }
+
+    WriteContext writeContext = batchContext.getWriteContext();
+    SMLogEntryProto.Builder builder = SMLogEntryProto.newBuilder();
+    builder.setData(encoder.write(writeContext.getWalKey(), writeContext.getWalEdit()));
+    return new TrxContext(this, request, builder.build(), batchContext);
+  }
+
+  @Override
+  public TrxContext preAppendTransaction(TrxContext trx) {
+    BatchContext batchContext = (BatchContext) trx.getStateMachineContext().get();
+    // stamp sequence id
+    region.preAppend(batchContext.getWriteContext());
+    return super.preAppendTransaction(trx);
+  }
+
+  @Override
+  public TrxContext applyTransactionSerial(TrxContext trx) throws IOException {
+    Optional<Object> stateMachineContext = trx.getStateMachineContext();
+    if (stateMachineContext.isPresent()) {
+      // this the leader applying already committed entries
+      BatchContext batchContext = (BatchContext) stateMachineContext.get();
+      WriteContext writeContext = batchContext.getWriteContext();
+      region.applyCommittedSerial(writeContext);
+    } else {
+      // this is a follower applying committed entries from the leader
+      WALKey walKey = new WALKey();
+      WALEdit walEdit = new WALEdit();
+      decoder.read(trx.getSMLogEntry().get().getData(), walKey, walEdit);
+
+      // start replay
+      WriteContext writeContext = region.startReplay(walKey, walEdit);
+      region.applyCommittedSerial(writeContext);
+
+      // save the state for later
+      BatchContext batchContext = new BatchContext();
+      batchContext.writeContext = writeContext;
+      trx.setStateMachineContext(batchContext);
+    }
+
+    return trx;
+  }
+
+  @Override
+  public CompletableFuture<Message> applyTransaction(TrxContext trx) throws IOException {
+    Optional<Object> stateMachineContext = trx.getStateMachineContext();
+    assert stateMachineContext.isPresent();
+
+    BatchContext batchContext = (BatchContext) stateMachineContext.get();
+    WriteContext writeContext = batchContext.getWriteContext();
+
+    region.applyCommitted(writeContext);
     return null;
   }
 
@@ -125,9 +196,9 @@ public class RegionStateMachine extends BaseStateMachine {
     return region;
   }
 
-  private List<CellScannable> doNonAtomicRegionMutation(final Region region,
-      final RegionAction actions,
-      final RegionActionResult.Builder builder, List<CellScannable> cellsToReturn) {
+  private void startNonAtomicRegionMutation(final BatchContext batchContext,
+                                                           final HRegion region,
+                                                           final RegionAction actions) {
     // Gather up CONTIGUOUS Puts and Deletes in this mutations List.  Idea is that rather than do
     // one at a time, we instead pass them in batch.  Be aware that the corresponding
     // ResultOrException instance that matches each Put or Delete is then added down in the
@@ -143,6 +214,7 @@ public class RegionStateMachine extends BaseStateMachine {
         if (action.hasGet()) {
           long before = EnvironmentEdgeManager.currentTime();
           try {
+            // TODO: gets in multi should be handled differently.
             Get get = ProtobufUtil.toGet(action.getGet());
             r = region.get(get);
           } finally {
@@ -152,7 +224,7 @@ public class RegionStateMachine extends BaseStateMachine {
           if (type != MutationType.PUT && type != MutationType.DELETE && mutations != null &&
               !mutations.isEmpty()) {
             // Flush out any Puts or Deletes already collected.
-            doBatchOp(builder, region, mutations);
+            startBatchOp(batchContext, region, mutations);
             mutations.clear();
           }
           switch (type) {
@@ -203,25 +275,23 @@ public class RegionStateMachine extends BaseStateMachine {
       if (resultOrExceptionBuilder != null) {
         // Propagate index.
         resultOrExceptionBuilder.setIndex(action.getIndex());
-        builder.addResultOrException(resultOrExceptionBuilder.build());
+        batchContext.regionActionResultBuilder.addResultOrException(resultOrExceptionBuilder.build());
       }
     }
     // Finish up any outstanding mutations
     if (mutations != null && !mutations.isEmpty()) {
-      doBatchOp(builder, region, mutations);
+      startBatchOp(batchContext, region, mutations);
     }
-    return cellsToReturn;
   }
 
   /**
    * Execute a list of Put/Delete mutations.
    *
-   * @param builder
    * @param region
    * @param mutations
    */
-  private void doBatchOp(final RegionActionResult.Builder builder, final Region region,
-      final List<ClientProtos.Action> mutations) {
+  private void startBatchOp(BatchContext batchContext,
+                            final HRegion region, final List<ClientProtos.Action> mutations) {
     Mutation[] mArray = new Mutation[mutations.size()];
     long before = EnvironmentEdgeManager.currentTime();
     boolean batchContainsPuts = false, batchContainsDelete = false;
@@ -240,37 +310,69 @@ public class RegionStateMachine extends BaseStateMachine {
         mArray[i++] = mutation;
       }
 
-      OperationStatus[] codes = region.batchMutate(mArray, HConstants.NO_NONCE,
-        HConstants.NO_NONCE);
-      for (i = 0; i < codes.length; i++) {
-        int index = mutations.get(i).getIndex();
-        Exception e = null;
-        switch (codes[i].getOperationStatusCode()) {
-          case BAD_FAMILY:
-            e = new NoSuchColumnFamilyException(codes[i].getExceptionMsg());
-            builder.addResultOrException(getResultOrException(e, index));
-            break;
+      WriteContext<?> ctx = region.startBatchMutate(mArray, HConstants.NO_NONCE,
+          HConstants.NO_NONCE);
+      batchContext.setWriteContext(ctx);
 
-          case SANITY_CHECK_FAILURE:
-            e = new FailedSanityCheckException(codes[i].getExceptionMsg());
-            builder.addResultOrException(getResultOrException(e, index));
-            break;
-
-          default:
-            e = new DoNotRetryIOException(codes[i].getExceptionMsg());
-            builder.addResultOrException(getResultOrException(e, index));
-            break;
-
-          case SUCCESS:
-            builder.addResultOrException(getResultOrException(
-              ClientProtos.Result.getDefaultInstance(), index));
-            break;
-        }
-      }
+//      for (i = 0; i < codes.length; i++) {
+//        int index = mutations.get(i).getIndex();
+//        Exception e = null;
+//        switch (codes[i].getOperationStatusCode()) {
+//          case BAD_FAMILY:
+//            e = new NoSuchColumnFamilyException(codes[i].getExceptionMsg());
+//            builder.addResultOrException(getResultOrException(e, index));
+//            break;
+//
+//          case SANITY_CHECK_FAILURE:
+//            e = new FailedSanityCheckException(codes[i].getExceptionMsg());
+//            builder.addResultOrException(getResultOrException(e, index));
+//            break;
+//
+//          default:
+//            e = new DoNotRetryIOException(codes[i].getExceptionMsg());
+//            builder.addResultOrException(getResultOrException(e, index));
+//            break;
+//
+//          case SUCCESS:
+//            builder.addResultOrException(getResultOrException(
+//              ClientProtos.Result.getDefaultInstance(), index));
+//            break;
+//        }
+//      }
     } catch (IOException ie) {
       for (int i = 0; i < mutations.size(); i++) {
-        builder.addResultOrException(getResultOrException(ie, mutations.get(i).getIndex()));
+        batchContext.regionActionResultBuilder.addResultOrException(getResultOrException(ie, mutations.get(i).getIndex()));
       }
+    }
+  }
+
+  private OperationStatus[] doReplayBatchOp(final HRegion region,
+                                            final List<WALSplitter.MutationReplay> mutations,
+                                            long replaySeqId) throws IOException {
+    long before = EnvironmentEdgeManager.currentTime();
+    boolean batchContainsPuts = false, batchContainsDelete = false;
+    try {
+      for (Iterator<MutationReplay> it = mutations.iterator(); it.hasNext();) {
+        WALSplitter.MutationReplay m = it.next();
+
+        if (m.type == MutationType.PUT) {
+          batchContainsPuts = true;
+        } else {
+          batchContainsDelete = true;
+        }
+
+        NavigableMap<byte[], List<Cell>> map = m.mutation.getFamilyCellMap();
+        List<Cell> metaCells = map.get(WALEdit.METAFAMILY);
+        if (metaCells != null && !metaCells.isEmpty()) {
+          it.remove(); // just skip meta markers
+        }
+      }
+      if (!region.getRegionInfo().isMetaTable()) {
+        // TODO regionServer.cacheFlusher.reclaimMemStoreMemory();
+      }
+      return region.batchReplay(mutations.toArray(
+          new WALSplitter.MutationReplay[mutations.size()]), replaySeqId);
+    } finally {
     }
   }
 

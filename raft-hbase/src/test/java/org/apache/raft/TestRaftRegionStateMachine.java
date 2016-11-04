@@ -19,10 +19,12 @@
 package org.apache.raft;
 
 import static org.apache.raft.RaftTestUtil.waitForLeader;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
+
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Scan;
@@ -38,7 +40,6 @@ import org.apache.raft.hbase.RegionStateMachine;
 import org.apache.raft.hbase.client.HBaseClient;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.server.simulation.SimulatedRequestReply;
 import org.junit.After;
@@ -123,9 +124,9 @@ public class TestRaftRegionStateMachine {
     Thread.sleep(cluster.getMaxTimeout() + 100);
     LOG.info(cluster.printAllLogs());
 
-    cluster.getServers().stream().filter(RaftServer::isRunning)
+    cluster.getServers().stream().filter(RaftServer::isAlive)
       .forEach(s -> {
-        RegionStateMachine rsm = (RegionStateMachine) s.getState().getStateMachine();
+        RegionStateMachine rsm = (RegionStateMachine) s.getStateMachine();
         HRegion region = rsm.getRegion();
         System.out.println("---------------");
         System.out.format("id=%s\n", s.getId());

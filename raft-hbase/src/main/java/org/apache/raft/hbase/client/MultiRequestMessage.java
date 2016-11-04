@@ -21,6 +21,8 @@ package org.apache.raft.hbase.client;
 import org.apache.hadoop.hbase.protobuf.generated.ClientProtos;
 import org.apache.raft.protocol.Message;
 
+import com.google.protobuf.ByteString;
+
 public class MultiRequestMessage implements Message {
 
   private ClientProtos.MultiRequest mr;
@@ -30,7 +32,7 @@ public class MultiRequestMessage implements Message {
   }
 
   @Override
-  public byte[] getContent() {
-    return mr.toByteArray();
+  public ByteString getContent() {
+    return mr.toByteString();
   }
 }

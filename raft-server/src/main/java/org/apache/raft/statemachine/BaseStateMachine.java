@@ -81,12 +81,12 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public TrxContext applyTransactionSerial(TrxContext trx) {
+  public TrxContext applyTransactionSerial(TrxContext trx) throws IOException {
     return trx;
   }
 
   @Override
-  public CompletableFuture<Message> applyTransaction(TrxContext trx) {
+  public CompletableFuture<Message> applyTransaction(TrxContext trx) throws IOException {
     // return the same message contained in the entry
     Message msg = () -> trx.getLogEntry().get().getSmLogEntry().getData();
     return CompletableFuture.completedFuture(msg);

@@ -137,6 +137,10 @@ public class TrxContext {
     return this.exception;
   }
 
+  public void setStateMachineContext(Object stateMachineContext) {
+    this.stateMachineContext = Optional.ofNullable(stateMachineContext);
+  }
+
   public Optional<Object> getStateMachineContext() {
     return stateMachineContext;
   }
