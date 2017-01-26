@@ -52,6 +52,7 @@
     <module>ratis-hadoop</module>
     <module>ratis-netty</module>
     <module>ratis-proto-shaded</module>
+    <module>ratis-replicated-map</module>
     <module>ratis-server</module>
   </modules>
 
