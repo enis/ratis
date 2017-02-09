@@ -20,20 +20,10 @@
 
 package org.apache.ratis.rmap.client;
 
-import java.io.Closeable;
-import java.io.IOException;
+import org.apache.ratis.rmap.client.impl.ClientImpl;
 
-/**
- * Client API for a replicated in-memory map of K to V
- * @param <K>
- * @param <V>
- */
-public interface RMap<K, V> extends Closeable {
-
-  void put(K key, V value) throws IOException;
-
-  V get(K key) throws IOException;
-
-  // TODO: checkAndPut, putIfAbsent, etc
-  // TODO: iterate
+public class ClientFactory {
+  public static Client getClient(String[] servers) {
+    return new ClientImpl(servers);
+  }
 }

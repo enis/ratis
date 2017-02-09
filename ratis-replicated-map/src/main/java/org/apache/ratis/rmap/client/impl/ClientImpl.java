@@ -18,9 +18,8 @@
  *
  */
 
-package org.apache.ratis.rmap.client;
+package org.apache.ratis.rmap.client.impl;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -30,17 +29,15 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.RaftClientSenderWithGrpc;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.rmap.client.Admin;
+import org.apache.ratis.rmap.client.RMap;
+import org.apache.ratis.rmap.client.Client;
 import org.apache.ratis.rmap.common.RMapId;
 
-/**
- * RMapClient maintains the connection to the quorum. Instances of RMaps can be created from
- * the client to read and write data.
- */
-public class RMapClient implements Closeable {
-
+public class ClientImpl implements Client {
   private RaftClient raftClient;
 
-  public RMapClient (String[] servers) {
+  public ClientImpl(String[] servers) {
     this.raftClient = createRaftClient(servers);
   }
 
@@ -56,19 +53,12 @@ public class RMapClient implements Closeable {
         .build();
   }
 
-  public boolean createRMap(RMapId id) {
-    // TODO: create a new RMap with the given id in the cluster
-    return false;
+  RaftClient getRaftClient() {
+    return raftClient;
   }
 
-  public boolean deleteRMap(RMapId id) {
-    // TODO
-    return false;
-  }
-
-  public List<RMapId> listRMapIds() {
-    // TODO
-    return null;
+  public Admin getAdmin() {
+    return new AdminImpl();
   }
 
   /**
@@ -79,7 +69,7 @@ public class RMapClient implements Closeable {
    * @return
    */
   public <K,V> RMap<K,V> getRMap(RMapId id) {
-    return new RMap<K, V>(id, this);
+    return new RMapImpl<K, V>(id, this);
   }
 
   @Override

@@ -22,47 +22,58 @@ package org.apache.ratis.rmap.common;
 
 import java.util.UUID;
 
+import com.google.common.base.Preconditions;
+
 /**
  * RMapId is a handle for the RMap instance that uniquely identifies the replicated map
- * in the cluster. The format of the id is: rmap_UUID
+ * in the cluster.
  */
 public class RMapId implements Comparable<RMapId> {
   private static final String PREFIX = "rmap_";
-  private static final int UUID_LENGTH = 16;
-
   private final String id;
 
   private RMapId(String id) {
     this.id = id;
   }
 
-  public static RMapId valueOf(String rmapId) throws IllegalArgumentException {
-    checkFormat(rmapId);
-    return new RMapId(rmapId);
+  public static RMapId valueOf(String id) throws IllegalArgumentException {
+    checkFormat(id);
+    return new RMapId(id);
   }
 
   /**
    * Creates a new unique id. Uses pseudo-random UUID generator.
    * @return a unique rmapId
    */
-  public static RMapId create() {
+  public static RMapId createUnique() {
     UUID uuid = UUID.randomUUID();
     String str = uuid.toString();
     return new RMapId(PREFIX + str);
   }
 
-  public String toString() {
-    return id;
+  /**
+   * Check whether the format is [a-zA-Z0-9][a-zA-Z_0-9-]+.
+   * @param id the id
+   */
+  private static void checkFormat(String id) {
+    Preconditions.checkArgument(id.length() > 0);
+    Preconditions.checkArgument(Character.isLetterOrDigit(id.charAt(0)));
+    for (int i = 1; i < id.length(); i++) {
+      Character c = id.charAt(i);
+      if (Character.isLetterOrDigit(c) ||
+          c == '_' ||
+          c == '-') {
+        continue;
+      }
+      throw new IllegalArgumentException("Illegal character code:" + c +
+          " at " + i + ", ids can only contain alphanumeric characters': i.e. [a-zA-Z_0-9-]. " +
+          " given id: " + id);
+    }
+
   }
 
-  private static void checkFormat(String id) {
-    // no need to pattern match.
-    if (!id.startsWith(PREFIX)) {
-      throw new IllegalArgumentException("rmapId passed is not of the form: rmap_UUID, " +
-          "passed:" +  id);
-    }
-    // parse the string to make sure that it conforms to the UUID format
-    UUID.fromString(id.substring(PREFIX.length()));
+  public String toString() {
+    return id;
   }
 
   @Override

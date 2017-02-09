@@ -32,20 +32,41 @@ public class TestRMapId {
   static final Logger LOG = LoggerFactory.getLogger(TestRMapId.class);
 
   @Test
-  public void testCreate() {
-    RMapId id = RMapId.create();
+  public void testCreateUnique() {
+    RMapId id = RMapId.createUnique();
     LOG.info("Created rmap_id:" + id);
   }
 
   @Test
   public void testValueOf() {
-    RMapId id = RMapId.create();
+    RMapId id = RMapId.createUnique();
     assertEquals(id, RMapId.valueOf(id.toString()));
+
+    assertEquals("a", RMapId.valueOf("a").toString());
+    assertEquals("foo", RMapId.valueOf("foo").toString());
+    assertEquals("foo_bar", RMapId.valueOf("foo_bar").toString());
+    assertEquals("foo-bar", RMapId.valueOf("foo-bar").toString());
+    assertEquals("foo-123", RMapId.valueOf("foo-123").toString());
+    assertEquals("123", RMapId.valueOf("123").toString());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testCheckFormat() {
-    RMapId id = RMapId.create();
-    RMapId.valueOf("rmap_foo-bar-baz");
+    RMapId.valueOf("rmap foo-bar-baz");
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testCheckFormat2() {
+    RMapId.valueOf("_");
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testCheckFormat3() {
+    RMapId.valueOf("-");
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testCheckFormat4() {
+    RMapId.valueOf(" ");
   }
 }

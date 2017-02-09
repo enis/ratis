@@ -18,22 +18,39 @@
  *
  */
 
-package org.apache.ratis.rmap.client;
+package org.apache.ratis.rmap.client.impl;
 
-import java.io.Closeable;
 import java.io.IOException;
 
-/**
- * Client API for a replicated in-memory map of K to V
- * @param <K>
- * @param <V>
- */
-public interface RMap<K, V> extends Closeable {
+import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.rmap.client.Client;
+import org.apache.ratis.rmap.client.RMap;
+import org.apache.ratis.rmap.common.RMapId;
 
-  void put(K key, V value) throws IOException;
+public class RMapImpl<K, V> implements RMap<K, V> {
+  private final RaftClient raftClient;
+  private final RMapId rmapId;
+  private final Client client;
 
-  V get(K key) throws IOException;
+  RMapImpl(RMapId id, ClientImpl client) {
+    this.rmapId = id;
+    this.client = client;
+    this.raftClient = client.getRaftClient();
+  }
+
+  public void put(K key, V value) throws IOException {
+    // TODO: generate request and send it via raftClient
+  }
+
+  public V get(K key) throws IOException {
+    // TODO:
+    return null;
+  }
 
   // TODO: checkAndPut, putIfAbsent, etc
   // TODO: iterate
+
+  @Override
+  public void close() throws IOException {
+  }
 }

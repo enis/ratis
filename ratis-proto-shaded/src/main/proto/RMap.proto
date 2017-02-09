@@ -1,0 +1,88 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto3";
+option java_package = "org.apache.ratis.shaded.proto.rmap";
+option java_outer_classname = "RMapProtos";
+option java_generate_equals_and_hash = true;
+package ratis.rmap;
+
+
+message RMapId {
+  string id = 1; // TODO: should this be bytes?
+}
+
+// TODO: raft client should allow a Service decleration, and calling a method from the service
+// similar to how coprocessor calls work in HBase.
+message Request {
+    oneof RequestType {
+        MultiAction multiAction = 1;
+        CreateRMapRequest createRMapRequest = 2;
+    }
+}
+
+message Response {
+    ExceptionResponse exception = 1;
+    oneof ResponseType {
+        MultiActionResponse multiActionResponse = 2;
+        CreateRMapResponse createRMapResponse = 3;
+    }
+}
+
+message MultiAction {
+    RMapId rmapId = 1;
+    oneof ActionType {
+        GetRequest getRequest = 2;
+        PutRequest putRequest = 3;
+    }
+}
+
+message MultiActionResponse {
+
+}
+
+message CreateRMapRequest {
+    RMapId rmapId = 1;
+}
+
+message CreateRMapResponse {
+}
+
+message GetRequest {
+}
+
+message GetResponse {
+}
+
+message PutRequest {
+}
+
+message PutResponse {
+}
+
+message ExceptionResponse {
+    // Class name of the exception thrown from the server
+    string exception_class_name = 1;
+    // Exception stack trace from the server side
+    string stack_trace = 2;
+    // Optional hostname.  Filled in for some exceptions such as region moved
+    // where exception gives clue on where the region may have moved.
+    string hostname = 3;
+    int32 port = 4;
+    // Set if we are NOT to retry on receipt of this exception
+    bool do_not_retry = 5;
+}

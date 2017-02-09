@@ -21,9 +21,11 @@
 package org.apache.ratis.rmap.storage;
 
 
+import java.util.Comparator;
 import java.util.concurrent.ConcurrentSkipListMap;
 
-import org.apache.ratis.rmap.common.RMapId;
+import org.apache.ratis.rmap.common.RMapInfo;
+import org.apache.ratis.rmap.util.ReflectionUtils;
 
 /**
  * This is the in-memory implementation for a sorted map of K to V. The concurrency model
@@ -32,12 +34,20 @@ import org.apache.ratis.rmap.common.RMapId;
  * @param <V> the class for values
  */
 public class RMapStore<K, V> {
-  private final RMapId id;
+  private final RMapInfo info;
+
   private final ConcurrentSkipListMap<K, V> map;
 
-  public RMapStore(RMapId id) {
-    this.id = id;
-    this.map = new ConcurrentSkipListMap<K, V>();
+  public RMapStore(RMapInfo info) {
+    this.info = info;
+
+    if (info.getKeyComparator() != null) {
+      Comparator<? super K> comparator
+          = (Comparator<? super K>) ReflectionUtils.newInstance(info.getKeyComparator());
+      this.map = new ConcurrentSkipListMap<>(comparator);
+    } else {
+      this.map = new ConcurrentSkipListMap<>();
+    }
   }
 
   public void put(K key, V value) {
@@ -47,6 +57,4 @@ public class RMapStore<K, V> {
   public V get(K key) {
     return map.get(key);
   }
-
-  // TODO: checkAndPut, putIfAbsent, etc
 }

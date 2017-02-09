@@ -23,17 +23,28 @@ package org.apache.ratis.rmap.client;
 import java.io.Closeable;
 import java.io.IOException;
 
+import org.apache.ratis.rmap.common.RMapId;
+
 /**
- * Client API for a replicated in-memory map of K to V
- * @param <K>
- * @param <V>
+ * Client maintains the connection to the quorum. Instances of RMaps can be created from
+ * the client to read and write data.
  */
-public interface RMap<K, V> extends Closeable {
+public interface Client extends Closeable {
+  /**
+   * Returns an Admin instance to do DDL operations
+   * @return
+   */
+  Admin getAdmin();
 
-  void put(K key, V value) throws IOException;
+  /**
+   * Creates and returns an RMap instance to access the map data.
+   * @param id
+   * @param <K>
+   * @param <V>
+   * @return
+   */
+  <K,V> RMap<K,V> getRMap(RMapId id);
 
-  V get(K key) throws IOException;
-
-  // TODO: checkAndPut, putIfAbsent, etc
-  // TODO: iterate
+  @Override
+  void close() throws IOException;
 }

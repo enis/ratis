@@ -18,22 +18,32 @@
  *
  */
 
-package org.apache.ratis.rmap.client;
+package org.apache.ratis.rmap.client.impl;
 
-import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 
-/**
- * Client API for a replicated in-memory map of K to V
- * @param <K>
- * @param <V>
- */
-public interface RMap<K, V> extends Closeable {
+import org.apache.ratis.rmap.client.Admin;
+import org.apache.ratis.rmap.common.RMapId;
+import org.apache.ratis.rmap.common.RMapInfo;
 
-  void put(K key, V value) throws IOException;
+class AdminImpl implements Admin {
+  public boolean createRMap(RMapInfo info) {
+    // TODO: create a new RMap with the given id in the cluster
+    return false;
+  }
 
-  V get(K key) throws IOException;
+  public boolean deleteRMap(RMapId id) {
+    // TODO
+    return false;
+  }
 
-  // TODO: checkAndPut, putIfAbsent, etc
-  // TODO: iterate
+  public List<RMapId> listRMapIds() {
+    // TODO
+    return null;
+  }
+
+  @Override
+  public void close() throws IOException {
+  }
 }

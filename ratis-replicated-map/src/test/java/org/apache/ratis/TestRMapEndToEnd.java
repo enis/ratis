@@ -21,12 +21,12 @@
 package org.apache.ratis;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 
+import org.apache.ratis.rmap.client.Client;
+import org.apache.ratis.rmap.client.ClientFactory;
 import org.apache.ratis.rmap.client.RMap;
-import org.apache.ratis.rmap.client.RMapClient;
 import org.apache.ratis.rmap.common.RMapId;
 import org.junit.Test;
 
@@ -36,14 +36,15 @@ public class TestRMapEndToEnd {
   public void testPutGet() throws IOException {
     // TODO: start a mini cluster
 
-    RMapClient client = new RMapClient(null);
+    Client client = ClientFactory.getClient(null);
 
-    RMapId id = RMapId.create();
-    assertTrue(client.createRMap(id));
+    RMapId id = RMapId.createUnique();
+    //assertTrue(client.createRMap(id)); TODO
 
-    RMap<String, String> map = client.getRMap(id);
-    map.put("foo", "bar");
-    assertEquals("bar", map.get("foo"));
+    try(RMap<String, String> map = client.getRMap(id)) {
+      map.put("foo", "bar");
+      assertEquals("bar", map.get("foo"));
+    }
   }
 
 }

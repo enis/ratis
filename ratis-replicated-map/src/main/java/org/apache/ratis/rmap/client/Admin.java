@@ -21,19 +21,19 @@
 package org.apache.ratis.rmap.client;
 
 import java.io.Closeable;
-import java.io.IOException;
+import java.util.List;
+
+import org.apache.ratis.rmap.common.RMapId;
+import org.apache.ratis.rmap.common.RMapInfo;
 
 /**
- * Client API for a replicated in-memory map of K to V
- * @param <K>
- * @param <V>
+ * Administration APIs for DDL operations.
  */
-public interface RMap<K, V> extends Closeable {
+public interface Admin extends Closeable {
 
-  void put(K key, V value) throws IOException;
+  boolean createRMap(RMapInfo info);
 
-  V get(K key) throws IOException;
+  boolean deleteRMap(RMapId id);
 
-  // TODO: checkAndPut, putIfAbsent, etc
-  // TODO: iterate
+  List<RMapId> listRMapIds();
 }
