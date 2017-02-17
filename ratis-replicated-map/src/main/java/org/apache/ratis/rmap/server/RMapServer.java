@@ -34,7 +34,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.RaftGRpcService;
 import org.apache.ratis.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.rmap.storage.RMapStateMachine;
+import org.apache.ratis.rmap.statemachine.RMapStateMachine;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.LogAppenderFactory;

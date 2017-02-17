@@ -23,23 +23,37 @@ package org.apache.ratis.rmap.client.impl;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.rmap.client.Admin;
-import org.apache.ratis.rmap.common.RMapId;
 import org.apache.ratis.rmap.common.RMapInfo;
+import org.apache.ratis.rmap.protocol.ProtobufConverter;
+import org.apache.ratis.rmap.protocol.Request;
 
 class AdminImpl implements Admin {
-  public boolean createRMap(RMapInfo info) {
-    // TODO: create a new RMap with the given id in the cluster
+
+  private final ClientImpl client;
+  private final RaftClient raftClient;
+
+  AdminImpl(ClientImpl client) {
+    this.client = client;
+    this.raftClient = client.getRaftClient();
+  }
+
+  public boolean createRMap(RMapInfo info) throws IOException {
+    Request req = ProtobufConverter.buildCreateRMapRequest(info);
+    RaftClientReply response = raftClient.send(req);
+
     return false;
   }
 
-  public boolean deleteRMap(RMapId id) {
-    // TODO
+  @Override
+  public boolean deleteRMap(long rmapId) {
     return false;
   }
 
-  public List<RMapId> listRMapIds() {
-    // TODO
+  @Override
+  public List<RMapInfo> listRMapInfos() {
     return null;
   }
 

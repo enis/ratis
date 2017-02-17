@@ -21,9 +21,9 @@
 package org.apache.ratis.rmap.client;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.List;
 
-import org.apache.ratis.rmap.common.RMapId;
 import org.apache.ratis.rmap.common.RMapInfo;
 
 /**
@@ -31,9 +31,9 @@ import org.apache.ratis.rmap.common.RMapInfo;
  */
 public interface Admin extends Closeable {
 
-  boolean createRMap(RMapInfo info);
+  boolean createRMap(RMapInfo info) throws IOException;
 
-  boolean deleteRMap(RMapId id);
+  boolean deleteRMap(long rmapId);
 
-  List<RMapId> listRMapIds();
+  List<RMapInfo> listRMapInfos();
 }

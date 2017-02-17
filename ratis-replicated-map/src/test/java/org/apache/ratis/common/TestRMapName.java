@@ -22,51 +22,51 @@ package org.apache.ratis.common;
 
 import static org.junit.Assert.assertEquals;
 
-import org.apache.ratis.rmap.common.RMapId;
+import org.apache.ratis.rmap.common.RMapName;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TestRMapId {
+public class TestRMapName {
 
-  static final Logger LOG = LoggerFactory.getLogger(TestRMapId.class);
+  static final Logger LOG = LoggerFactory.getLogger(TestRMapName.class);
 
   @Test
   public void testCreateUnique() {
-    RMapId id = RMapId.createUnique();
+    RMapName id = RMapName.createUnique();
     LOG.info("Created rmap_id:" + id);
   }
 
   @Test
   public void testValueOf() {
-    RMapId id = RMapId.createUnique();
-    assertEquals(id, RMapId.valueOf(id.toString()));
+    RMapName id = RMapName.createUnique();
+    assertEquals(id, RMapName.valueOf(id.toString()));
 
-    assertEquals("a", RMapId.valueOf("a").toString());
-    assertEquals("foo", RMapId.valueOf("foo").toString());
-    assertEquals("foo_bar", RMapId.valueOf("foo_bar").toString());
-    assertEquals("foo-bar", RMapId.valueOf("foo-bar").toString());
-    assertEquals("foo-123", RMapId.valueOf("foo-123").toString());
-    assertEquals("123", RMapId.valueOf("123").toString());
+    assertEquals("a", RMapName.valueOf("a").toString());
+    assertEquals("foo", RMapName.valueOf("foo").toString());
+    assertEquals("foo_bar", RMapName.valueOf("foo_bar").toString());
+    assertEquals("foo-bar", RMapName.valueOf("foo-bar").toString());
+    assertEquals("foo-123", RMapName.valueOf("foo-123").toString());
+    assertEquals("123", RMapName.valueOf("123").toString());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testCheckFormat() {
-    RMapId.valueOf("rmap foo-bar-baz");
+    RMapName.valueOf("rmap foo-bar-baz");
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testCheckFormat2() {
-    RMapId.valueOf("_");
+    RMapName.valueOf("_");
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testCheckFormat3() {
-    RMapId.valueOf("-");
+    RMapName.valueOf("-");
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testCheckFormat4() {
-    RMapId.valueOf(" ");
+    RMapName.valueOf(" ");
   }
 }

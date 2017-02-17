@@ -25,41 +25,41 @@ import java.util.UUID;
 import com.google.common.base.Preconditions;
 
 /**
- * RMapId is a handle for the RMap instance that uniquely identifies the replicated map
+ * RMapName is a handle for the RMap instance that uniquely identifies the replicated map
  * in the cluster.
  */
-public class RMapId implements Comparable<RMapId> {
+public class RMapName implements Comparable<RMapName> {
   private static final String PREFIX = "rmap_";
-  private final String id;
+  private final String name;
 
-  private RMapId(String id) {
-    this.id = id;
+  private RMapName(String name) {
+    this.name = name;
   }
 
-  public static RMapId valueOf(String id) throws IllegalArgumentException {
-    checkFormat(id);
-    return new RMapId(id);
+  public static RMapName valueOf(String name) throws IllegalArgumentException {
+    checkFormat(name);
+    return new RMapName(name);
   }
 
   /**
    * Creates a new unique id. Uses pseudo-random UUID generator.
-   * @return a unique rmapId
+   * @return a unique rmap name
    */
-  public static RMapId createUnique() {
+  public static RMapName createUnique() {
     UUID uuid = UUID.randomUUID();
     String str = uuid.toString();
-    return new RMapId(PREFIX + str);
+    return new RMapName(PREFIX + str);
   }
 
   /**
    * Check whether the format is [a-zA-Z0-9][a-zA-Z_0-9-]+.
-   * @param id the id
+   * @param name the name
    */
-  private static void checkFormat(String id) {
-    Preconditions.checkArgument(id.length() > 0);
-    Preconditions.checkArgument(Character.isLetterOrDigit(id.charAt(0)));
-    for (int i = 1; i < id.length(); i++) {
-      Character c = id.charAt(i);
+  private static void checkFormat(String name) {
+    Preconditions.checkArgument(name.length() > 0);
+    Preconditions.checkArgument(Character.isLetterOrDigit(name.charAt(0)));
+    for (int i = 1; i < name.length(); i++) {
+      Character c = name.charAt(i);
       if (Character.isLetterOrDigit(c) ||
           c == '_' ||
           c == '-') {
@@ -67,24 +67,23 @@ public class RMapId implements Comparable<RMapId> {
       }
       throw new IllegalArgumentException("Illegal character code:" + c +
           " at " + i + ", ids can only contain alphanumeric characters': i.e. [a-zA-Z_0-9-]. " +
-          " given id: " + id);
+          " given id: " + name);
     }
-
   }
 
   public String toString() {
-    return id;
+    return name;
   }
 
   @Override
-  public int compareTo(RMapId o) {
-    return this.id.compareTo(o.id);
+  public int compareTo(RMapName o) {
+    return this.name.compareTo(o.name);
   }
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof RMapId) {
-      return this.compareTo((RMapId) obj) == 0;
+    if (obj instanceof RMapName) {
+      return this.compareTo((RMapName) obj) == 0;
     }
     return false;
   }

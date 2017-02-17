@@ -20,9 +20,15 @@
 
 package org.apache.ratis.rmap.client;
 
+import java.util.List;
+
 import org.apache.ratis.rmap.client.impl.ClientImpl;
 
 public class ClientFactory {
+  public static Client getClient(List<String> servers) {
+    return new ClientImpl(servers.toArray(new String[servers.size()]));
+  }
+
   public static Client getClient(String[] servers) {
     return new ClientImpl(servers);
   }

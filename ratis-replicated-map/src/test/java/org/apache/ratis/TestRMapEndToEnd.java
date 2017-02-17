@@ -20,31 +20,79 @@
 
 package org.apache.ratis;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.stream.Collectors;
 
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.rmap.client.Admin;
 import org.apache.ratis.rmap.client.Client;
 import org.apache.ratis.rmap.client.ClientFactory;
-import org.apache.ratis.rmap.client.RMap;
-import org.apache.ratis.rmap.common.RMapId;
+import org.apache.ratis.rmap.common.RMapInfo;
+import org.apache.ratis.rmap.common.RMapName;
+import org.apache.ratis.rmap.protocol.Serde.StringSerde;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 public class TestRMapEndToEnd {
+  private static final int NUM_SERVERS = 3;
+
+  private MiniRaftCluster cluster;
+
+  @Before
+  public void setUp() throws IOException {
+    RaftProperties props = new RaftProperties();
+    cluster = MiniRMapCluster.newBuilder()
+        .withNumServers(NUM_SERVERS)
+        .withRaftProperties(props)
+        .build();
+    cluster.start();
+  }
+
+  @After
+  public void tearDown() {
+    cluster.shutdown();
+  }
+
+  private Client createClient() {
+    return ClientFactory.getClient(cluster.getPeers().stream().map(
+        p -> p.getAddress()).collect(Collectors.toList()));
+  }
+
+  private RMapInfo createRMapInfo() {
+    RMapName name = RMapName.createUnique();
+    return RMapInfo.newBuilder()
+        .withName(name)
+        .withKeyClass(String.class)
+        .withValueClass(String.class)
+        .withKeySerdeClass(StringSerde.class)
+        .withValueSerdeClass(StringSerde.class)
+        .build();
+  }
+
+  @Test
+  public void testCreateRMap() throws IOException {
+    Client client = createClient();
+    RMapInfo info = createRMapInfo();
+
+    try(Admin admin = client.getAdmin()) {
+      assertTrue(admin.createRMap(info));
+    }
+  }
 
   @Test
   public void testPutGet() throws IOException {
-    // TODO: start a mini cluster
+    Client client = createClient();
 
-    Client client = ClientFactory.getClient(null);
-
-    RMapId id = RMapId.createUnique();
-    //assertTrue(client.createRMap(id)); TODO
-
-    try(RMap<String, String> map = client.getRMap(id)) {
-      map.put("foo", "bar");
-      assertEquals("bar", map.get("foo"));
-    }
+//    RMapName name = RMapName.createUnique();
+//    assertTrue(client.createRMap(id));
+//
+//    try(RMap<String, String> map = client.getRMap(id)) {
+//      map.put("foo", "bar");
+//      assertEquals("bar", map.get("foo"));
+//    }
   }
 
 }

@@ -23,7 +23,7 @@ package org.apache.ratis.rmap.client;
 import java.io.Closeable;
 import java.io.IOException;
 
-import org.apache.ratis.rmap.common.RMapId;
+import org.apache.ratis.rmap.common.RMapName;
 
 /**
  * Client maintains the connection to the quorum. Instances of RMaps can be created from
@@ -43,7 +43,7 @@ public interface Client extends Closeable {
    * @param <V>
    * @return
    */
-  <K,V> RMap<K,V> getRMap(RMapId id);
+  <K,V> RMap<K,V> getRMap(RMapName id);
 
   @Override
   void close() throws IOException;

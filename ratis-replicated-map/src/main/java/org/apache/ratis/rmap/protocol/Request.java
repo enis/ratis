@@ -18,23 +18,13 @@
  *
  */
 
-package org.apache.ratis.rmap.client;
+package org.apache.ratis.rmap.protocol;
 
-import java.io.Closeable;
-import java.io.IOException;
+import org.apache.ratis.protocol.ProtobufMessage;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos;
 
-/**
- * Client API for a replicated in-memory map of K to V
- * @param <K>
- * @param <V>
- */
-public interface RMap<K, V> extends Closeable {
-
-  void put(K key, V value) throws IOException;
-
-  V get(K key) throws IOException;
-
-
-  // TODO: iterate/scan
-  // TODO: checkAndPut, putIfAbsent, etc
+public class Request extends ProtobufMessage {
+  public Request(RMapProtos.Request protoRequest) {
+    super(protoRequest);
+  }
 }

@@ -32,7 +32,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.rmap.client.Admin;
 import org.apache.ratis.rmap.client.RMap;
 import org.apache.ratis.rmap.client.Client;
-import org.apache.ratis.rmap.common.RMapId;
+import org.apache.ratis.rmap.common.RMapName;
 
 public class ClientImpl implements Client {
   private RaftClient raftClient;
@@ -58,7 +58,7 @@ public class ClientImpl implements Client {
   }
 
   public Admin getAdmin() {
-    return new AdminImpl();
+    return new AdminImpl(this);
   }
 
   /**
@@ -68,7 +68,7 @@ public class ClientImpl implements Client {
    * @param <V>
    * @return
    */
-  public <K,V> RMap<K,V> getRMap(RMapId id) {
+  public <K,V> RMap<K,V> getRMap(RMapName id) {
     return new RMapImpl<K, V>(id, this);
   }
 

@@ -18,23 +18,28 @@
  *
  */
 
-package org.apache.ratis.rmap.client;
+package org.apache.ratis.protocol;
 
-import java.io.Closeable;
-import java.io.IOException;
+import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.shaded.com.google.protobuf.TextFormat;
 
 /**
- * Client API for a replicated in-memory map of K to V
- * @param <K>
- * @param <V>
+ * A Message wrapper for a PB-defined message.
  */
-public interface RMap<K, V> extends Closeable {
+public class ProtobufMessage implements Message {
+  protected final org.apache.ratis.shaded.com.google.protobuf.Message proto;
 
-  void put(K key, V value) throws IOException;
+  public ProtobufMessage(org.apache.ratis.shaded.com.google.protobuf.Message proto) {
+    this.proto = proto;
+  }
 
-  V get(K key) throws IOException;
+  @Override
+  public ByteString getContent() {
+    return proto.toByteString();
+  }
 
-
-  // TODO: iterate/scan
-  // TODO: checkAndPut, putIfAbsent, etc
+  @Override
+  public String toString() {
+    return TextFormat.shortDebugString(proto);
+  }
 }

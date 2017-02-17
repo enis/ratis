@@ -11,3 +11,12 @@ The replicated map (RMap) is not only the state machine implementation, but
 all of the remaining code, including the client and querying capabilities which
 is built on top of the other modules. In that sense, it is dog-fooding the ratis
 library to implement an end-to-end solution for a replicated in-memory data store.
+
+Replicated maps are conceptually similar to ZooKeeper and/or etcd where the data
+is hosted in a known cluster configuration and is not sharded. All the servers 
+in the cluster participate in a single RAFT ring.
+
+The data model is that users can create independent RMap instances in the cluster 
+and read / write or scan the data as key value pairs in those replicated maps. A
+replicated map named the meta map contains information about all of the other maps
+in the cluster. 

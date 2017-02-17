@@ -25,15 +25,15 @@ import java.io.IOException;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.rmap.client.Client;
 import org.apache.ratis.rmap.client.RMap;
-import org.apache.ratis.rmap.common.RMapId;
+import org.apache.ratis.rmap.common.RMapName;
 
 public class RMapImpl<K, V> implements RMap<K, V> {
   private final RaftClient raftClient;
-  private final RMapId rmapId;
+  private final RMapName rmapName;
   private final Client client;
 
-  RMapImpl(RMapId id, ClientImpl client) {
-    this.rmapId = id;
+  RMapImpl(RMapName id, ClientImpl client) {
+    this.rmapName = id;
     this.client = client;
     this.raftClient = client.getRaftClient();
   }

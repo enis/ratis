@@ -25,7 +25,9 @@ import java.util.Comparator;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 import org.apache.ratis.rmap.common.RMapInfo;
+import org.apache.ratis.rmap.protocol.Serde;
 import org.apache.ratis.rmap.util.ReflectionUtils;
+import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 
 /**
  * This is the in-memory implementation for a sorted map of K to V. The concurrency model
@@ -33,28 +35,60 @@ import org.apache.ratis.rmap.util.ReflectionUtils;
  * @param <K> the class for keys
  * @param <V> the class for values
  */
-public class RMapStore<K, V> {
-  private final RMapInfo info;
+public class RMapStore<
+    K,
+    V,
+    KS extends Serde<K>,
+    VS extends Serde<V>,
+    KC extends Comparator<? super K>> {
+  private final RMapInfo<K, V, KS, VS, KC> info;
+  private final Serde<K> keySerde;
+  private final Serde<V> valueSerde;
 
   private final ConcurrentSkipListMap<K, V> map;
 
   public RMapStore(RMapInfo info) {
     this.info = info;
+    this.keySerde = ReflectionUtils.<Serde<K>>newInstance(info.getKeySerdeClass());
+    this.valueSerde = ReflectionUtils.<Serde<V>>newInstance(info.getValueSerdeClass());
 
-    if (info.getKeyComparator() != null) {
+    if (info.getKeyComparatorClass() != null) {
       Comparator<? super K> comparator
-          = (Comparator<? super K>) ReflectionUtils.newInstance(info.getKeyComparator());
+          = (Comparator<? super K>) ReflectionUtils.newInstance(info.getKeyComparatorClass());
       this.map = new ConcurrentSkipListMap<>(comparator);
     } else {
       this.map = new ConcurrentSkipListMap<>();
     }
   }
 
+  public Serde<K> getKeySerde() {
+    return keySerde;
+  }
+
+  public Serde<V> getValueSerde() {
+    return valueSerde;
+  }
+
   public void put(K key, V value) {
     map.put(key, value);
   }
 
+  public void put(ByteString key, ByteString value) {
+    K k = keySerde.deserialize(key);
+    V v = valueSerde.deserialize(value);
+    put(k,v);
+  }
+
   public V get(K key) {
     return map.get(key);
+  }
+
+  public String debugDump() {
+    StringBuilder builder = new StringBuilder();
+    builder.append("RMapStore{ rmap_info:")
+        .append(info)
+        .append(", map:")
+        .append(map);
+    return builder.toString();
   }
 }

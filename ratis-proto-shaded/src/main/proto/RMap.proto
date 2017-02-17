@@ -21,54 +21,103 @@ option java_outer_classname = "RMapProtos";
 option java_generate_equals_and_hash = true;
 package ratis.rmap;
 
+// TODO: This .proto file should go to the ratis-replicated-map module, but we need it here
+// due to shading.
 
-message RMapId {
-  string id = 1; // TODO: should this be bytes?
+// Metadata about a replicated map
+message RMapInfo {
+  int64 rmap_id = 1;
+  string name = 2;
+  string key_class = 3;
+  string value_class = 4;
+  string key_comparator = 5;
 }
+
+// An entry in a replicated map.`
+message Entry {
+    bytes key = 1;
+    bytes value = 2;
+}
+
 
 // TODO: raft client should allow a Service decleration, and calling a method from the service
 // similar to how coprocessor calls work in HBase.
 message Request {
     oneof RequestType {
-        MultiAction multiAction = 1;
-        CreateRMapRequest createRMapRequest = 2;
+        MultiActionRequest multi_action_request = 1;
+        CreateRMapRequest create_rmap_request = 2;
+        DeleteRMapRequest delete_rmap_request = 3;
+        ListRMapInfosRequest list_rmap_infos_request = 4;
     }
 }
 
 message Response {
     ExceptionResponse exception = 1;
     oneof ResponseType {
-        MultiActionResponse multiActionResponse = 2;
-        CreateRMapResponse createRMapResponse = 3;
+        MultiActionResponse multi_action_response = 2;
+        CreateRMapResponse create_rmap_response = 3;
+        DeleteRMapResponse delete_rmap_response = 4;
+        ListRMapInfosResponse list_rmap_infos_response = 5;
     }
 }
 
-message MultiAction {
-    RMapId rmapId = 1;
+message MultiActionRequest {
+    int64 rmap_id = 1;
+    repeated Action action = 2;
+}
+
+message Action {
     oneof ActionType {
-        GetRequest getRequest = 2;
-        PutRequest putRequest = 3;
+        GetRequest get_request = 1;
+        PutRequest put_request = 2;
+    }
+}
+
+message ActionResponse {
+    oneof ActionType {
+        GetResponse get_response = 1;
+        PutResponse put_response = 2;
     }
 }
 
 message MultiActionResponse {
-
+    repeated ActionResponse action_response = 1;
 }
 
 message CreateRMapRequest {
-    RMapId rmapId = 1;
+    RMapInfo rmap_info = 1;
 }
 
 message CreateRMapResponse {
+    RMapInfo rmap_info = 1;
+}
+
+message DeleteRMapRequest {
+    int64 rmap_id = 1;
+}
+
+message DeleteRMapResponse {
+}
+
+message ListRMapInfosRequest {
+}
+
+message ListRMapInfosResponse {
+    repeated RMapInfo rmap_info = 1;
 }
 
 message GetRequest {
+    bytes key = 1;
 }
 
 message GetResponse {
+    bytes key = 1;
+    bytes value = 2;
 }
 
 message PutRequest {
+    bytes key = 1;
+    bytes value = 2;
 }
 
 message PutResponse {
@@ -85,4 +134,13 @@ message ExceptionResponse {
     int32 port = 4;
     // Set if we are NOT to retry on receipt of this exception
     bool do_not_retry = 5;
+}
+
+message Id {
+    int64 id = 1;
+}
+
+message WALEntry {
+    int64 rmap_id = 1;
+    repeated Entry entry = 2;
 }

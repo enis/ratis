@@ -22,47 +22,97 @@ package org.apache.ratis.rmap.common;
 
 import java.util.Comparator;
 
+import org.apache.ratis.rmap.protocol.Serde;
+
 import com.google.common.base.Preconditions;
 
 /**
  * Metadata about a replicated map.
  */
-public class RMapInfo<K, V, KC extends Comparator<? super K>> {
-  private final RMapId id;
+public class RMapInfo<
+    K,
+    V,
+    KS extends Serde<K>,
+    VS extends Serde<V>,
+    KC extends Comparator<? super K>> {
+
+  /**
+   * Indicates an rmap id which is not set yet. Only Rmap's which are not yet created
+   * have their rmap ids unset.
+   */
+  public static final long UNSET_RMAP_ID = -1;
+
+  private final long id;
+  private final RMapName name;
   private final Class<K> keyClass;
   private final Class<V> valueClass;
-  private final Class<KC> keyComparator;
+  private final Class<KS> keySerdeClass;
+  private final Class<VS> valueSerdeClass;
+  private final Class<KC> keyComparatorClass;
 
-  // TODO: KeySerialiser and ValueSerializer classes ?
-
-  public static class Builder<K, V, KC extends Comparator<? super K>> {
-    private RMapId id;
+  public static class Builder<
+      K,
+      V,
+      KS extends Serde<K>,
+      VS extends Serde<V>,
+      KC extends Comparator<? super K>> {
+    private RMapName name;
+    private long id = UNSET_RMAP_ID;
     private Class<K> keyClass;
     private Class<V> valueClass;
-    private Class<KC> keyComparator;
+    private Class<KC> keyComparatorClass;
+    private Class<KS> keySerdeClass;
+    private Class<VS> valueSerdeClass;
 
-    Builder withId(RMapId id) {
+    public Builder withRMapInfo(RMapInfo<K,V,KS,VS,KC> info) {
+      this.id = info.id;
+      this.name = info.name;
+      this.keyClass = info.keyClass;
+      this.valueClass = info.valueClass;
+      this.keySerdeClass = info.keySerdeClass;
+      this.valueSerdeClass = info.valueSerdeClass;
+      this.keyComparatorClass = info.keyComparatorClass;
+      return this;
+    }
+
+    public Builder withName(RMapName name) {
+      this.name = name;
+      return this;
+    }
+
+    public Builder withId(long id) {
       this.id = id;
       return this;
     }
 
-    Builder withKeyClass(Class<K> keyClass) {
+    public Builder withKeyClass(Class<K> keyClass) {
       this.keyClass = keyClass;
       return this;
     }
 
-    Builder withValueClass(Class<V> valueClass) {
+    public Builder withValueClass(Class<V> valueClass) {
       this.valueClass = valueClass;
       return this;
     }
 
-    Builder withKeyComparator(Class<KC> keyComparator) {
-      this.keyComparator = keyComparator;
+    public Builder withKeySerdeClass(Class<KS> keySerdeClass) {
+      this.keySerdeClass = keySerdeClass;
       return this;
     }
 
-    RMapInfo build() {
-      return new RMapInfo(id, keyClass, valueClass, keyComparator);
+    public Builder withValueSerdeClass(Class<VS> valueSerdeClass) {
+      this.valueSerdeClass = valueSerdeClass;
+      return this;
+    }
+
+    public Builder withKeyComparator(Class<KC> keyComparator) {
+      this.keyComparatorClass = keyComparator;
+      return this;
+    }
+
+    public RMapInfo build() {
+      return new RMapInfo(id, name, keyClass, valueClass,
+          keySerdeClass, valueSerdeClass, keyComparatorClass);
     }
   }
 
@@ -70,13 +120,18 @@ public class RMapInfo<K, V, KC extends Comparator<? super K>> {
     return new Builder();
   }
 
-  private RMapInfo(RMapId id, Class<K> keyClass, Class<V> valueClass, Class<KC> keyComparator) {
+  private RMapInfo(long id, RMapName name, Class<K> keyClass, Class<V> valueClass,
+                   Class<KS> keySerdeClass, Class<VS> valueSerdeClass,
+                   Class<KC> keyComparatorClass) {
     Preconditions.checkNotNull(this.id = id);
+    Preconditions.checkNotNull(this.name = name);
     Preconditions.checkNotNull(this.keyClass = keyClass);
     Preconditions.checkNotNull(this.valueClass = valueClass);
-    this.keyComparator = keyComparator; // can be null
+    Preconditions.checkNotNull(this.keySerdeClass = keySerdeClass);
+    Preconditions.checkNotNull(this.valueSerdeClass = valueSerdeClass);
+    this.keyComparatorClass = keyComparatorClass; // can be null
 
-    if (keyComparator == null) {
+    if (keyComparatorClass == null) {
       if (!Comparable.class.isAssignableFrom(keyClass)) {
         throw new IllegalArgumentException("Provided keyClass: " + keyClass + " should implement" +
             " Comparable OR a Comparator class sholud be given for keys.");
@@ -84,8 +139,12 @@ public class RMapInfo<K, V, KC extends Comparator<? super K>> {
     }
   }
 
-  public RMapId getId() {
+  public long getId() {
     return id;
+  }
+
+  public RMapName getName() {
+    return name;
   }
 
   public Class<K> getKeyClass() {
@@ -96,7 +155,36 @@ public class RMapInfo<K, V, KC extends Comparator<? super K>> {
     return valueClass;
   }
 
-  public Class<KC> getKeyComparator() {
-    return keyComparator;
+  public Class<KS> getKeySerdeClass() {
+    return keySerdeClass;
+  }
+
+  public Class<VS> getValueSerdeClass() {
+    return valueSerdeClass;
+  }
+
+  public Class<KC> getKeyComparatorClass() {
+    return keyComparatorClass;
+  }
+
+  @Override
+  public String toString() {
+    return new StringBuilder()
+        .append("RMapInfo{ id:")
+        .append(id)
+        .append(" ,name:")
+        .append(name)
+        .append(" ,keyClass:")
+        .append(keyClass.getName())
+        .append(" ,valueClass:")
+        .append(valueClass.getName())
+        .append(" ,keySerdeClass:")
+        .append(keySerdeClass.getName())
+        .append(" ,valueSerdeClass:")
+        .append(valueSerdeClass.getName())
+        .append(" ,keyComparatorClass:")
+        .append(keyComparatorClass == null ? "null" : keyComparatorClass.getName())
+        .append(" }")
+        .toString();
   }
 }

@@ -58,6 +58,7 @@ public class RaftClientRequest extends RaftClientMessage {
   @Override
   public String toString() {
     return super.toString() + ", seqNum: " + seqNum + ", "
-        + (isReadOnly()? "RO": "RW");
+        + (isReadOnly()? "RO": "RW")
+        + " ,message:" + message;
   }
 }
