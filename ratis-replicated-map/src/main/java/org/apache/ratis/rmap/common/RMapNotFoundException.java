@@ -18,31 +18,15 @@
  *
  */
 
-package org.apache.ratis.rmap.client;
+package org.apache.ratis.rmap.common;
 
-import java.io.Closeable;
 import java.io.IOException;
 
 /**
- * Client maintains the connection to the quorum. Instances of RMaps can be created from
- * the client to read and write data.
+ * Thrown when RMap cannot be found
  */
-public interface Client extends Closeable {
-  /**
-   * Returns an Admin instance to do DDL operations
-   * @return
-   */
-  Admin getAdmin();
-
-  /**
-   * Creates and returns an RMap instance to access the map data.
-   * @param id
-   * @param <K>
-   * @param <V>
-   * @return
-   */
-  <K,V> RMap<K,V> getRMap(long id) throws IOException;
-
-  @Override
-  void close() throws IOException;
+public class RMapNotFoundException extends IOException {
+  public RMapNotFoundException(long rMapId) {
+    super("RMap with id:" + rMapId + " cannot be found");
+  }
 }

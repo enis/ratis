@@ -20,14 +20,17 @@
 
 package org.apache.ratis.rmap.storage;
 
-
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 import org.apache.ratis.rmap.common.RMapInfo;
 import org.apache.ratis.rmap.protocol.Serde;
 import org.apache.ratis.rmap.util.ReflectionUtils;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.Entry;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.PutRequest;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.WALEntry;
 
 /**
  * This is the in-memory implementation for a sorted map of K to V. The concurrency model
@@ -69,6 +72,30 @@ public class RMapStore<
     return valueSerde;
   }
 
+  public Entry buildEntry(K key, V value) {
+    return Entry.newBuilder()
+        .setKey(keySerde.serialize(key))
+        .setValue(valueSerde.serialize(value))
+        .build();
+  }
+
+  private Entry buildEntry(ByteString key, ByteString value) {
+    return Entry.newBuilder()
+        .setKey(key)
+        .setValue(value)
+        .build();
+  }
+
+  public WALEntry buildWALEntry(List<PutRequest> actions) {
+    WALEntry.Builder builder = WALEntry.newBuilder()
+        .setRmapId(info.getId());
+    for (PutRequest action : actions) {
+      builder.addEntry(buildEntry(action.getKey(), action.getValue()));
+    }
+
+    return builder.build();
+  }
+
   public void put(K key, V value) {
     map.put(key, value);
   }
@@ -81,6 +108,14 @@ public class RMapStore<
 
   public V get(K key) {
     return map.get(key);
+  }
+
+  public ByteString getAsByteString(ByteString key) {
+    V v = get(keySerde.deserialize(key));
+    if (v == null) {
+      return null;
+    }
+    return valueSerde.serialize(v);
   }
 
   public String debugDump() {

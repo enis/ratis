@@ -26,11 +26,13 @@ package ratis.rmap;
 
 // Metadata about a replicated map
 message RMapInfo {
-  int64 rmap_id = 1;
-  string name = 2;
-  string key_class = 3;
-  string value_class = 4;
-  string key_comparator = 5;
+    int64 rmap_id = 1;
+    string name = 2;
+    string key_class = 3;
+    string value_class = 4;
+    string key_serde_class = 5;
+    string value_serde_class = 6;
+    string key_comparator_class = 7;
 }
 
 // An entry in a replicated map.`
@@ -38,7 +40,6 @@ message Entry {
     bytes key = 1;
     bytes value = 2;
 }
-
 
 // TODO: raft client should allow a Service decleration, and calling a method from the service
 // similar to how coprocessor calls work in HBase.
@@ -100,6 +101,13 @@ message DeleteRMapResponse {
 }
 
 message ListRMapInfosRequest {
+    oneof ListRMapInfosType {
+        // if set, we only care about a particular RMapInfo
+        int64 rmap_id = 1;
+
+        // only return infos whose names match this pattern
+        string name_pattern = 2;
+    }
 }
 
 message ListRMapInfosResponse {
@@ -111,8 +119,9 @@ message GetRequest {
 }
 
 message GetResponse {
-    bytes key = 1;
-    bytes value = 2;
+    bool found = 1;
+    bytes key = 2;
+    bytes value = 3;
 }
 
 message PutRequest {
@@ -141,6 +150,20 @@ message Id {
 }
 
 message WALEntry {
-    int64 rmap_id = 1;
+    int64 rmap_id = 1;  // these are shared by all WALEntry types
     repeated Entry entry = 2;
+    oneof WALEntryType {
+        // Multi is not here, because we do not want to create one more object unnecessarily
+        CreateRMapWALEntry create_rmap_entry = 3;
+        DeleteRMapWALEntry delete_rmap_entry = 4;
+    }
+}
+
+message CreateRMapWALEntry {
+    RMapInfo rmap_info = 1;
+    Id id = 2;
+}
+
+message DeleteRMapWALEntry {
+    int64 id = 1;
 }

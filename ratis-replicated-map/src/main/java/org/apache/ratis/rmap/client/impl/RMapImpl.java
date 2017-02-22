@@ -23,28 +23,72 @@ package org.apache.ratis.rmap.client.impl;
 import java.io.IOException;
 
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.rmap.client.Client;
 import org.apache.ratis.rmap.client.RMap;
-import org.apache.ratis.rmap.common.RMapName;
+import org.apache.ratis.rmap.common.RMapInfo;
+import org.apache.ratis.rmap.protocol.ProtobufConverter;
+import org.apache.ratis.rmap.protocol.Request;
+import org.apache.ratis.rmap.protocol.Serde;
+import org.apache.ratis.rmap.util.ReflectionUtils;
+import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.GetResponse;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.MultiActionResponse;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.Response;
 
 public class RMapImpl<K, V> implements RMap<K, V> {
   private final RaftClient raftClient;
-  private final RMapName rmapName;
+  private final RMapInfo info;
   private final Client client;
+  private final Serde<K> keySerde;
+  private final Serde<V> valueSerde;
 
-  RMapImpl(RMapName id, ClientImpl client) {
-    this.rmapName = id;
+  RMapImpl(RMapInfo info, ClientImpl client) {
+    this.info = info;
     this.client = client;
     this.raftClient = client.getRaftClient();
+    this.keySerde = ReflectionUtils.<Serde<K>>newInstance(info.getKeySerdeClass());
+    this.valueSerde = ReflectionUtils.<Serde<V>>newInstance(info.getValueSerdeClass());
   }
 
   public void put(K key, V value) throws IOException {
-    // TODO: generate request and send it via raftClient
+    ByteString k = keySerde.serialize(key);
+    ByteString v = valueSerde.serialize(value);
+
+    Request req = ProtobufConverter.buildMultiPutRequest(info.getId(), k, v);
+    RaftClientReply reply = raftClient.send(req);
+
+    if (!reply.isSuccess()) {
+      throw new IOException("Request failed :" + reply);
+    }
+
+    Response resp = ProtobufConverter.parseResponseFrom(reply.getMessage().getContent());
+    MultiActionResponse multiActionResponse = resp.getMultiActionResponse();
+    assert multiActionResponse != null;
+
+    // nothing to check in the response
   }
 
   public V get(K key) throws IOException {
-    // TODO:
-    return null;
+    ByteString k = keySerde.serialize(key);
+
+    Request req = ProtobufConverter.buildMultiGetRequest(info.getId(), k);
+    RaftClientReply reply = raftClient.sendReadOnly(req);
+
+    if (!reply.isSuccess()) {
+      throw new IOException("Request failed :" + reply);
+    }
+
+    Response resp = ProtobufConverter.parseResponseFrom(reply.getMessage().getContent());
+    MultiActionResponse multiActionResponse = resp.getMultiActionResponse();
+    assert multiActionResponse != null;
+
+    GetResponse getResponse = multiActionResponse.getActionResponse(0).getGetResponse();
+    if (!getResponse.getFound()) {
+      return null;
+    }
+
+    return valueSerde.deserialize(getResponse.getValue());
   }
 
   // TODO: checkAndPut, putIfAbsent, etc

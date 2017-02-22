@@ -34,6 +34,7 @@ message RaftConfigurationProto {
 message SMLogEntryProto {
   // TODO: This is not super efficient if the SM itself uses PB to serialize its own data for a
   // log entry. Data will be copied twice. We should directly support having any Message from SM
+  // Use Any in proto
   bytes data = 1;
 }
 

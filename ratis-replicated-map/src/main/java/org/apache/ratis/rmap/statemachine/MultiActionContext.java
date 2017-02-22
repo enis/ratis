@@ -18,31 +18,12 @@
  *
  */
 
-package org.apache.ratis.rmap.client;
+package org.apache.ratis.rmap.statemachine;
 
-import java.io.Closeable;
-import java.io.IOException;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.WALEntry;
 
-/**
- * Client maintains the connection to the quorum. Instances of RMaps can be created from
- * the client to read and write data.
- */
-public interface Client extends Closeable {
-  /**
-   * Returns an Admin instance to do DDL operations
-   * @return
-   */
-  Admin getAdmin();
-
-  /**
-   * Creates and returns an RMap instance to access the map data.
-   * @param id
-   * @param <K>
-   * @param <V>
-   * @return
-   */
-  <K,V> RMap<K,V> getRMap(long id) throws IOException;
-
-  @Override
-  void close() throws IOException;
+public class MultiActionContext extends WriteContext {
+  protected MultiActionContext(WALEntry walEntry) {
+    super(Type.MULTI_ACTION, walEntry);
+  }
 }

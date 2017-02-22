@@ -105,8 +105,8 @@ public class RMapInfo<
       return this;
     }
 
-    public Builder withKeyComparator(Class<KC> keyComparator) {
-      this.keyComparatorClass = keyComparator;
+    public Builder withKeyComparatorClass(Class<KC> keyComparatorClass) {
+      this.keyComparatorClass = keyComparatorClass;
       return this;
     }
 

@@ -18,31 +18,40 @@
  *
  */
 
-package org.apache.ratis.rmap.client;
+package org.apache.ratis.rmap.statemachine;
 
-import java.io.Closeable;
-import java.io.IOException;
+import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.WALEntry;
 
 /**
- * Client maintains the connection to the quorum. Instances of RMaps can be created from
- * the client to read and write data.
+ * State machine context object carried through ongoing transactions.
  */
-public interface Client extends Closeable {
-  /**
-   * Returns an Admin instance to do DDL operations
-   * @return
-   */
-  Admin getAdmin();
+abstract class WriteContext {
+  enum Type {
+    MULTI_ACTION,
+    CREATE_RMAP,
+    DELETE_RMAP;
+  }
 
-  /**
-   * Creates and returns an RMap instance to access the map data.
-   * @param id
-   * @param <K>
-   * @param <V>
-   * @return
-   */
-  <K,V> RMap<K,V> getRMap(long id) throws IOException;
+  private final Type type;
+  private final WALEntry walEntry;
 
-  @Override
-  void close() throws IOException;
+  protected WriteContext(Type type, WALEntry walEntry) {
+    this.type = type;
+    this.walEntry = walEntry;
+  }
+
+  public Type getType() {
+    return type;
+  }
+
+  public WALEntry getWalEntry() {
+    return walEntry;
+  }
+
+  public SMLogEntryProto buildSMLogEntry() {
+    return SMLogEntryProto.newBuilder()
+        .setData(walEntry.toByteString())
+        .build();
+  }
 }

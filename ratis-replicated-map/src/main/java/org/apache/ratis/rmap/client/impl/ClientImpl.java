@@ -30,9 +30,9 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.RaftClientSenderWithGrpc;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.rmap.client.Admin;
-import org.apache.ratis.rmap.client.RMap;
 import org.apache.ratis.rmap.client.Client;
-import org.apache.ratis.rmap.common.RMapName;
+import org.apache.ratis.rmap.client.RMap;
+import org.apache.ratis.rmap.common.RMapInfo;
 
 public class ClientImpl implements Client {
   private RaftClient raftClient;
@@ -57,6 +57,7 @@ public class ClientImpl implements Client {
     return raftClient;
   }
 
+  @Override
   public Admin getAdmin() {
     return new AdminImpl(this);
   }
@@ -68,8 +69,12 @@ public class ClientImpl implements Client {
    * @param <V>
    * @return
    */
-  public <K,V> RMap<K,V> getRMap(RMapName id) {
-    return new RMapImpl<K, V>(id, this);
+  @Override
+  public <K,V> RMap<K,V> getRMap(long id) throws IOException {
+    try (Admin admin = getAdmin()) {
+      RMapInfo info = admin.getRmapInfo(id);
+      return new RMapImpl<K, V>(info, this);
+    }
   }
 
   @Override

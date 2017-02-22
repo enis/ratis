@@ -20,17 +20,20 @@
 
 package org.apache.ratis.rmap.meta;
 
+import java.io.IOException;
+
 import org.apache.ratis.rmap.common.RMapInfo;
 import org.apache.ratis.rmap.common.RMapName;
 import org.apache.ratis.rmap.protocol.ProtobufConverter;
 import org.apache.ratis.rmap.protocol.Serde;
 import org.apache.ratis.rmap.protocol.Serde.ByteStringSerde;
 import org.apache.ratis.rmap.protocol.Serde.StringSerde;
+import org.apache.ratis.rmap.statemachine.CreateRMapContext;
 import org.apache.ratis.rmap.storage.RMapStore;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos;
-import org.apache.ratis.shaded.proto.rmap.RMapProtos.Entry;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.CreateRMapWALEntry;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.Id;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.WALEntry;
 
@@ -87,15 +90,7 @@ public class MetaMap {
     store.put(ID_KEY, getIdValue(metaMapInfo.getId()));
   }
 
-  private Entry entry(String key, ByteString value) {
-    return Entry.newBuilder()
-        .setKey(keySerde.serialize(key))
-        .setValue(valueSerde.serialize(value))
-        .build();
-  }
-
-  public RMapProtos.WALEntry preCreateRMap(RMapProtos.RMapInfo info)
-      throws InvalidProtocolBufferException {
+  public CreateRMapContext preCreateRMap(RMapProtos.RMapInfo info)  throws IOException {
     // TODO: obtain locks for concurrency
     // TODO: make sure that map with same name does not exist
 
@@ -106,16 +101,27 @@ public class MetaMap {
         .setRmapId(id)
         .build();
 
-    ByteString rmapInfoVal = info.toByteString();
-    ByteString idVal = Id.newBuilder().setId(id).build().toByteString();
-
-    // Build WAL entry for this DDL statement
+    // Build WAL buildEntry for this DDL statement
     WALEntry.Builder builder = WALEntry.newBuilder()
-        .addEntry(entry(getRMapKey(info), rmapInfoVal))
-        .addEntry(entry(ID_KEY, idVal))
+        .setCreateRmapEntry(
+            CreateRMapWALEntry.newBuilder()
+                .setId(Id.newBuilder().setId(id))
+                .setRmapInfo(info))
         .setRmapId(metaMapInfo.getId());
 
-    return builder.build();
+    return new CreateRMapContext(builder.build(), ProtobufConverter.fromProto(info), info);
+  }
+
+  public void applyCreateRMap(WALEntry walEntry) {
+    CreateRMapWALEntry createRmapEntry = walEntry.getCreateRmapEntry();
+    RMapProtos.RMapInfo info = createRmapEntry.getRmapInfo();
+    Id id = createRmapEntry.getId();
+
+    ByteString rmapInfoVal = info.toByteString();
+    ByteString idVal = id.toByteString();
+
+    store.put(getRMapKey(info.getRmapId()), rmapInfoVal);
+    store.buildEntry(ID_KEY, idVal);
   }
 
   private ByteString getIdValue(long id) {
@@ -133,14 +139,22 @@ public class MetaMap {
     return currentId() + 1;
   }
 
-  private String getRMapKey(RMapProtos.RMapInfo info) {
-    Preconditions.checkArgument(info.getRmapId() >= 0);
-    return RMAP_KEY + "/" + info.getRmapId() + "/" + INFO;
+  private String getRMapKey(long id) {
+    Preconditions.checkArgument(id >= 0);
+    return RMAP_KEY + "/" + id + "/" + INFO;
   }
 
   private void insertRMap(RMapInfo info) {
     RMapProtos.RMapInfo proto = ProtobufConverter.toProto(info);
-    store.put(getRMapKey(proto), proto.toByteString());
+    store.put(getRMapKey(proto.getRmapId()), proto.toByteString());
+  }
+
+  public RMapProtos.RMapInfo getRMap(long id) throws IOException {
+    ByteString str = store.get(getRMapKey(id));
+    if (str == null) {
+      return null;
+    }
+    return RMapProtos.RMapInfo.parseFrom(str);
   }
 
   public RMapStore<String, ByteString, StringSerde, ByteStringSerde, ?> getStore() {

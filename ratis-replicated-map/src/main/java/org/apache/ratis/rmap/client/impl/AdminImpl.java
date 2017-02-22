@@ -21,16 +21,25 @@
 package org.apache.ratis.rmap.client.impl;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.rmap.client.Admin;
 import org.apache.ratis.rmap.common.RMapInfo;
+import org.apache.ratis.rmap.common.RMapNotFoundException;
 import org.apache.ratis.rmap.protocol.ProtobufConverter;
 import org.apache.ratis.rmap.protocol.Request;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.CreateRMapResponse;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.ListRMapInfosResponse;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class AdminImpl implements Admin {
+  static final Logger LOG = LoggerFactory.getLogger(AdminImpl.class);
 
   private final ClientImpl client;
   private final RaftClient raftClient;
@@ -40,11 +49,24 @@ class AdminImpl implements Admin {
     this.raftClient = client.getRaftClient();
   }
 
-  public boolean createRMap(RMapInfo info) throws IOException {
+  public RMapInfo createRMap(RMapInfo info) throws IOException {
     Request req = ProtobufConverter.buildCreateRMapRequest(info);
-    RaftClientReply response = raftClient.send(req);
+    RaftClientReply reply = raftClient.send(req);
 
-    return false;
+    if (!reply.isSuccess()) {
+      throw new IOException("Request failed :" + reply);
+    }
+
+    Response resp = ProtobufConverter.parseResponseFrom(reply.getMessage().getContent());
+    CreateRMapResponse createRMapResponse = resp.getCreateRmapResponse();
+    assert createRMapResponse != null;
+
+    RMapInfo ret = ProtobufConverter.fromProto(createRMapResponse.getRmapInfo());
+    if (!ret.getName().equals(info.getName())) {
+      throw new IOException("Coding error! Server returned an RMapInfo object for a different " +
+          "rmap. Request:" + info + " ,Response:" + ret);
+    }
+    return ret;
   }
 
   @Override
@@ -53,8 +75,41 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public List<RMapInfo> listRMapInfos() {
-    return null;
+  public RMapInfo getRmapInfo(long rMapId) throws IOException {
+    List<RMapInfo> infos = listRMapInfos(rMapId, null);
+    if (infos.isEmpty()) {
+      throw new RMapNotFoundException(rMapId);
+    }
+    return infos.get(0);
+  }
+
+  @Override
+  public List<RMapInfo> listRMapInfos() throws IOException {
+    return listRMapInfos(null);
+  }
+
+  @Override
+  public List<RMapInfo> listRMapInfos(String namePattern) throws IOException {
+    return listRMapInfos(RMapInfo.UNSET_RMAP_ID, namePattern);
+  }
+
+  private List<RMapInfo> listRMapInfos(long rMapId, String namePattern) throws IOException {
+    Request req = ProtobufConverter.buildListRMapInfosRequest(rMapId, namePattern);
+    RaftClientReply reply = raftClient.sendReadOnly(req);
+
+    if (!reply.isSuccess()) {
+      throw new IOException("Request failed :" + reply);
+    }
+
+    Response resp = ProtobufConverter.parseResponseFrom(reply.getMessage().getContent());
+    ListRMapInfosResponse listRMapInfosResponse = resp.getListRmapInfosResponse();
+    assert listRMapInfosResponse != null;
+
+    ArrayList<RMapInfo> ret = new ArrayList<>(listRMapInfosResponse.getRmapInfoCount());
+    for (RMapProtos.RMapInfo info : listRMapInfosResponse.getRmapInfoList()) {
+      ret.add(ProtobufConverter.fromProto(info));
+    }
+    return ret;
   }
 
   @Override

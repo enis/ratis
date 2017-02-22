@@ -20,11 +20,29 @@
 
 package org.apache.ratis.rmap.protocol;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.stream.Stream;
+
 import org.apache.ratis.rmap.common.RMapInfo;
+import org.apache.ratis.rmap.common.RMapName;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.Action;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.ActionResponse;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.CreateRMapRequest;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.CreateRMapResponse;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.Entry;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.GetRequest;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.GetResponse;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.ListRMapInfosRequest;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.ListRMapInfosResponse;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.MultiActionRequest;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.MultiActionResponse;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.PutRequest;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.PutResponse;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.WALEntry;
 
 public class ProtobufConverter {
   public static RMapProtos.RMapInfo toProto(RMapInfo rMapInfo) {
@@ -32,13 +50,34 @@ public class ProtobufConverter {
         .setRmapId(rMapInfo.getId())
         .setName(rMapInfo.getName().toString())
         .setKeyClass(rMapInfo.getKeyClass().getName())
-        .setValueClass(rMapInfo.getValueClass().getName());
+        .setValueClass(rMapInfo.getValueClass().getName())
+        .setKeySerdeClass(rMapInfo.getKeySerdeClass().getName())
+        .setValueSerdeClass(rMapInfo.getValueSerdeClass().getName());
 
     if (rMapInfo.getKeyComparatorClass() != null) {
-      builder.setKeyComparator(rMapInfo.getKeyComparatorClass().getName());
+      builder.setKeyComparatorClass(rMapInfo.getKeyComparatorClass().getName());
     }
 
     return builder.build();
+  }
+
+  public static RMapInfo fromProto(RMapProtos.RMapInfo rMapInfo) throws IOException {
+    try {
+      RMapInfo.Builder builder = RMapInfo.newBuilder()
+          .withId(rMapInfo.getRmapId())
+          .withName(RMapName.valueOf(rMapInfo.getName()))
+          .withKeyClass(Class.forName(rMapInfo.getKeyClass()))
+          .withValueClass(Class.forName(rMapInfo.getValueClass()))
+          .withKeySerdeClass(Class.forName(rMapInfo.getKeySerdeClass()))
+          .withValueSerdeClass(Class.forName(rMapInfo.getValueSerdeClass()));
+
+      if (rMapInfo.getKeyComparatorClass() != null && !rMapInfo.getKeyComparatorClass().isEmpty()) {
+        builder.withKeyComparatorClass(Class.forName(rMapInfo.getKeyComparatorClass()));
+      }
+      return builder.build();
+    } catch (ClassNotFoundException ex) {
+      throw new IOException(ex);
+    }
   }
 
   public static Request buildCreateRMapRequest(RMapInfo rMapInfo) {
@@ -49,12 +88,112 @@ public class ProtobufConverter {
     return new Request(
         RMapProtos.Request.newBuilder()
         .setCreateRmapRequest(req)
-        .build()
-    );
+        .build());
+  }
+
+  public static Response buildCreateRMapResponse(RMapProtos.RMapInfo rMapInfo) {
+    CreateRMapResponse resp = CreateRMapResponse.newBuilder()
+        .setRmapInfo(rMapInfo)
+        .build();
+
+    return new Response(
+        RMapProtos.Response.newBuilder()
+            .setCreateRmapResponse(resp)
+            .build());
+
+  }
+
+  public static Request buildListRMapInfosRequest(long rMapId, String namePattern) {
+    ListRMapInfosRequest.Builder req = ListRMapInfosRequest.newBuilder();
+
+    if (rMapId > 0) {
+      req.setRmapId(rMapId);
+    }
+    if (namePattern != null) {
+      req.setNamePattern(namePattern);
+    }
+
+    return new Request(
+        RMapProtos.Request.newBuilder()
+            .setListRmapInfosRequest(req)
+            .build());
+  }
+
+  public static Response buildListRMapInfosResponse(List<RMapProtos.RMapInfo> rMapInfos) {
+    ListRMapInfosResponse.Builder resp = ListRMapInfosResponse.newBuilder()
+        .addAllRmapInfo(rMapInfos);
+
+    return new Response(
+        RMapProtos.Response.newBuilder()
+            .setListRmapInfosResponse(resp)
+            .build());
+  }
+
+  public static Request buildMultiPutRequest(long rMapId, ByteString key, ByteString value) {
+    MultiActionRequest.Builder req = MultiActionRequest.newBuilder();
+
+    req.addAction(Action.newBuilder()
+        .setPutRequest(PutRequest.newBuilder() // TODO: allow more than 1 K,V
+            .setKey(key)
+            .setValue(value)
+    )).setRmapId(rMapId);
+
+    return new Request(
+        RMapProtos.Request.newBuilder()
+            .setMultiActionRequest(req)
+            .build());
+  }
+
+  public static Response buildMultiPutResponse(Stream<WALEntry> walEntries) {
+    MultiActionResponse.Builder resp = MultiActionResponse.newBuilder();
+
+    walEntries.forEach( walEntry ->
+      resp.addActionResponse(ActionResponse.newBuilder()
+          .setPutResponse(PutResponse.newBuilder())));
+
+    return new Response(
+        RMapProtos.Response.newBuilder()
+            .setMultiActionResponse(resp)
+            .build());
+  }
+
+  public static Request buildMultiGetRequest(long rMapId, ByteString key) {
+    MultiActionRequest.Builder req = MultiActionRequest.newBuilder();
+
+    req.addAction(Action.newBuilder()
+        .setGetRequest(GetRequest.newBuilder() // TODO: allow more than 1 K,V
+            .setKey(key)
+        )).setRmapId(rMapId);
+
+    return new Request(
+        RMapProtos.Request.newBuilder()
+            .setMultiActionRequest(req)
+            .build());
+  }
+
+  public static Response buildMultiGetResponse(Stream<Entry> entries) {
+    MultiActionResponse.Builder resp = MultiActionResponse.newBuilder();
+
+    entries.forEach(entry ->
+      resp.addActionResponse(ActionResponse.newBuilder()
+          .setGetResponse(GetResponse.newBuilder()
+              .setFound(entry.getValue() != null)
+              .setKey(entry.getKey())
+              .setValue(entry.getValue()))));
+
+    return new Response(
+        RMapProtos.Response.newBuilder()
+            .setMultiActionResponse(resp)
+            .build());
   }
 
   public static RMapProtos.Request parseRequestFrom(ByteString buf)
       throws InvalidProtocolBufferException {
     return RMapProtos.Request.parseFrom(buf);
+  }
+
+  public static RMapProtos.Response parseResponseFrom(ByteString buf)
+      throws InvalidProtocolBufferException {
+    return RMapProtos.Response.parseFrom(buf);
   }
 }

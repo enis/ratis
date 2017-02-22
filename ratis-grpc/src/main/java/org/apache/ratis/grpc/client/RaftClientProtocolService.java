@@ -17,23 +17,28 @@
  */
 package org.apache.ratis.grpc.client;
 
-import com.google.common.base.Preconditions;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.hadoop.util.StringUtils;
+import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceImplBase;
-import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.grpc.RaftGrpcUtil;
-import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
-import org.apache.ratis.protocol.RaftClientReply;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
+import com.google.common.base.Preconditions;
 
 public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase {
   static final Logger LOG = LoggerFactory.getLogger(RaftClientProtocolService.class);
@@ -156,7 +161,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
         });
       } catch (Throwable e) {
         LOG.info("{} got exception when handling client append request {}: {}",
-            id, request.getRpcRequest(), e);
+            id, request.getRpcRequest(), StringUtils.stringifyException(e));
         responseObserver.onError(RaftGrpcUtil.wrapException(e));
       }
     }

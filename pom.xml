@@ -270,6 +270,19 @@
       </dependency>
 
       <dependency>
+        <artifactId>ratis-replicated-map</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-replicated-map</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
         <artifactId>ratis-server</artifactId>
         <groupId>org.apache.ratis</groupId>
         <version>${project.version}</version>

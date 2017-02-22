@@ -31,9 +31,13 @@ import org.apache.ratis.rmap.common.RMapInfo;
  */
 public interface Admin extends Closeable {
 
-  boolean createRMap(RMapInfo info) throws IOException;
+  RMapInfo createRMap(RMapInfo info) throws IOException;
 
   boolean deleteRMap(long rmapId);
 
-  List<RMapInfo> listRMapInfos();
+  List<RMapInfo> listRMapInfos() throws IOException;
+
+  List<RMapInfo> listRMapInfos(String namePattern) throws IOException;
+
+  RMapInfo getRmapInfo(long rMapId) throws IOException;
 }
