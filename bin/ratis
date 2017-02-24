@@ -1,0 +1,264 @@
+#! /usr/bin/env bash
+#
+#/**
+# * Licensed to the Apache Software Foundation (ASF) under one
+# * or more contributor license agreements.  See the NOTICE file
+# * distributed with this work for additional information
+# * regarding copyright ownership.  The ASF licenses this file
+# * to you under the Apache License, Version 2.0 (the
+# * "License"); you may not use this file except in compliance
+# * with the License.  You may obtain a copy of the License at
+# *
+# *     http://www.apache.org/licenses/LICENSE-2.0
+# *
+# * Unless required by applicable law or agreed to in writing, software
+# * distributed under the License is distributed on an "AS IS" BASIS,
+# * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# * See the License for the specific language governing permissions and
+# * limitations under the License.
+# */
+#
+# The ratis command script.  Based on the hadoop command script putting
+# in ratis classes, libs and configurations ahead of hadoop's.
+#
+#
+# Environment Variables:
+#
+#   JAVA_HOME        The java implementation to use.  Overrides JAVA_HOME.
+#
+#   RATIS_CLASSPATH  Extra Java CLASSPATH entries.
+#
+#   RATIS_CLASSPATH_PREFIX Extra Java CLASSPATH entries that should be
+#                    prefixed to the system classpath.
+#
+#   RATIS_HEAPSIZE   The maximum amount of heap to use.
+#                    Default is unset and uses the JVMs default setting
+#                    (usually 1/4th of the available memory).
+#
+#   RATIS_LIBRARY_PATH  Ratis additions to JAVA_LIBRARY_PATH for adding
+#                    native libraries.
+#
+#   RATIS_OPTS       Extra Java runtime options.
+#
+#   RATIS_CONF_DIR   Alternate conf dir. Default is ${RATIS_HOME}/conf.
+#
+#   RATIS_ROOT_LOGGER The root appender. Default is INFO,console
+#
+bin=`dirname "$0"`
+bin=`cd "$bin">/dev/null; pwd`
+
+# This will set RATIS_HOME, etc.
+. "$bin"/ratis-config.sh
+
+# Detect if we are in ratis sources dir
+in_dev_env=false
+if [ -d "${RATIS_HOME}/target" ]; then
+  in_dev_env=true
+fi
+
+read -d '' options_string << EOF
+Options:
+  --config DIR     Configuration direction to use. Default: ./conf
+  --hosts HOSTS    Override the list in 'hosts' file
+EOF
+# if no args specified, show usage
+if [ $# = 0 ]; then
+  echo "Usage: ratis [<options>] <command> [<args>]"
+  echo "$options_string"
+  echo ""
+  echo "Commands:"
+  echo "Some commands take arguments. Pass no args or -h for usage."
+  echo "  classpath       Dump Ratis CLASSPATH"
+  echo "  version         Print the version"
+  echo "  CLASSNAME       Run the class named CLASSNAME"
+  exit 1
+fi
+
+# get arguments
+COMMAND=$1
+shift
+
+JAVA=$JAVA_HOME/bin/java
+
+# override default settings for this command, if applicable
+if [ -f "$RATIS_HOME/conf/ratis-env-$COMMAND.sh" ]; then
+  . "$RATIS_HOME/conf/ratis-env-$COMMAND.sh"
+fi
+
+add_size_suffix() {
+    # add an 'm' suffix if the argument is missing one, otherwise use whats there
+    local val="$1"
+    local lastchar=${val: -1}
+    if [[ "mMgG" == *$lastchar* ]]; then
+        echo $val
+    else
+        echo ${val}m
+    fi
+}
+
+if [[ -n "$RATIS_HEAPSIZE" ]]; then
+    JAVA_HEAP_MAX="-Xmx$(add_size_suffix $RATIS_HEAPSIZE)"
+fi
+
+if [[ -n "$RATIS_OFFHEAPSIZE" ]]; then
+    JAVA_OFFHEAP_MAX="-XX:MaxDirectMemorySize=$(add_size_suffix $RATIS_OFFHEAPSIZE)"
+fi
+
+# so that filenames w/ spaces are handled correctly in loops below
+ORIG_IFS=$IFS
+IFS=
+
+# CLASSPATH initially contains $RATIS_CONF_DIR
+CLASSPATH="${RATIS_CONF_DIR}"
+CLASSPATH=${CLASSPATH}:$JAVA_HOME/lib/tools.jar
+
+add_to_cp_if_exists() {
+  if [ -d "$@" ]; then
+    CLASSPATH=${CLASSPATH}:"$@"
+  fi
+}
+
+# For releases, add ratis & webapps to CLASSPATH
+# Webapps must come first else it messes up Jetty
+if [ -d "$RATIS_HOME/ratis-webapps" ]; then
+  add_to_cp_if_exists "${RATIS_HOME}"
+fi
+#add if we are in a dev environment
+if [ -d "$RATIS_HOME/ratis-server/target/ratis-webapps" ]; then
+  add_to_cp_if_exists "${RATIS_HOME}/ratis-server/target"
+fi
+
+add_maven_deps_to_classpath() {
+  f="${RATIS_HOME}/target/cached_classpath.txt"
+  if [ ! -f "${f}" ]
+  then
+      echo "As this is a development environment, we need ${f} to be generated from maven (command: mvn install -DskipTests)"
+      exit 1
+  fi
+  CLASSPATH=${CLASSPATH}:`cat "${f}"`
+}
+
+
+#Add the development env class path stuff
+if $in_dev_env; then
+  add_maven_deps_to_classpath
+fi
+
+#add the ratis jars for each module
+for f in $RATIS_HOME/ratis-jars/ratis*.jar; do
+	if [[ $f = *sources.jar ]]
+  then
+    : # Skip sources.jar
+  elif [ -f $f ]
+  then
+    CLASSPATH=${CLASSPATH}:$f;
+  fi
+done
+
+# Add libs to CLASSPATH
+for f in $RATIS_HOME/lib/*.jar; do
+  CLASSPATH=${CLASSPATH}:$f;
+done
+
+# default log directory & file
+if [ "$RATIS_LOG_DIR" = "" ]; then
+  RATIS_LOG_DIR="$RATIS_HOME/logs"
+fi
+if [ "$RATIS_LOGFILE" = "" ]; then
+  RATIS_LOGFILE='ratis.log'
+fi
+
+function append_path() {
+  if [ -z "$1" ]; then
+    echo $2
+  else
+    echo $1:$2
+  fi
+}
+
+JAVA_PLATFORM=""
+
+# if RATIS_LIBRARY_PATH is defined lets use it as first or second option
+if [ "$RATIS_LIBRARY_PATH" != "" ]; then
+  JAVA_LIBRARY_PATH=$(append_path "$JAVA_LIBRARY_PATH" "$RATIS_LIBRARY_PATH")
+fi
+
+# Add user-specified CLASSPATH last
+if [ "$RATIS_CLASSPATH" != "" ]; then
+  CLASSPATH=${CLASSPATH}:${RATIS_CLASSPATH}
+fi
+
+# Add user-specified CLASSPATH prefix first
+if [ "$RATIS_CLASSPATH_PREFIX" != "" ]; then
+  CLASSPATH=${RATIS_CLASSPATH_PREFIX}:${CLASSPATH}
+fi
+
+if [ -d "${RATIS_HOME}/build/native" -o -d "${RATIS_HOME}/lib/native" ]; then
+  if [ -z $JAVA_PLATFORM ]; then
+    JAVA_PLATFORM=`CLASSPATH=${CLASSPATH} ${JAVA} org.apache.hadoop.util.PlatformName | sed -e "s/ /_/g"` # TODO: clone PlatformName from Hadoop.
+  fi
+  if [ -d "$RATIS_HOME/build/native" ]; then
+    JAVA_LIBRARY_PATH=$(append_path "$JAVA_LIBRARY_PATH" ${RATIS_HOME}/build/native/${JAVA_PLATFORM}/lib)
+  fi
+
+  if [ -d "${RATIS_HOME}/lib/native" ]; then
+    JAVA_LIBRARY_PATH=$(append_path "$JAVA_LIBRARY_PATH" ${RATIS_HOME}/lib/native/${JAVA_PLATFORM})
+  fi
+fi
+
+# restore ordinary behaviour
+unset IFS
+
+#Set the right GC options based on the what we are running
+declare -a server_cmds=()
+for cmd in ${server_cmds[@]}; do
+	if [[ $cmd == $COMMAND ]]; then
+		server=true
+		break
+	fi
+done
+
+if [[ $server ]]; then
+	RATIS_OPTS="$RATIS_OPTS $SERVER_GC_OPTS"
+else
+	RATIS_OPTS="$RATIS_OPTS $CLIENT_GC_OPTS"
+fi
+
+# figure out which class to run
+if [ "$COMMAND" = "classpath" ] ; then
+  echo $CLASSPATH
+  exit 0
+elif [ "$COMMAND" = "version" ] ; then
+  CLASS='org.apache.ratis.util.VersionInfo'  # TODO: generate Version from maven
+else
+  CLASS=$COMMAND
+fi
+
+# Have JVM dump heap if we run out of memory.  Files will be 'launch directory'
+# and are named like the following: java_pid21612.hprof. Apparently it doesn't
+# 'cost' to have this flag enabled. Its a 1.6 flag only. See:
+# http://blogs.sun.com/alanb/entry/outofmemoryerror_looks_a_bit_better
+RATIS_OPTS="$RATIS_OPTS -Dratis.log.dir=$RATIS_LOG_DIR"
+RATIS_OPTS="$RATIS_OPTS -Dratis.log.file=$RATIS_LOGFILE"
+RATIS_OPTS="$RATIS_OPTS -Dratis.home.dir=$RATIS_HOME"
+RATIS_OPTS="$RATIS_OPTS -Dratis.id.str=$RATIS_IDENT_STRING"
+RATIS_OPTS="$RATIS_OPTS -Dratis.root.logger=${RATIS_ROOT_LOGGER:-INFO,console}"
+if [ "x$JAVA_LIBRARY_PATH" != "x" ]; then
+  RATIS_OPTS="$RATIS_OPTS -Djava.library.path=$JAVA_LIBRARY_PATH"
+  export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$JAVA_LIBRARY_PATH"
+fi
+
+# Enable security logging on the servers only
+case "$COMMAND" in
+  *server) RATIS_OPTS="$RATIS_OPTS -Dratis.security.logger=${RATIS_SECURITY_LOGGER:-INFO,RFAS}";;
+  *)       RATIS_OPTS="$RATIS_OPTS -Dratis.security.logger=${RATIS_SECURITY_LOGGER:-INFO,NullAppender}";;
+esac
+
+HEAP_SETTINGS="$JAVA_HEAP_MAX $JAVA_OFFHEAP_MAX"
+# Exec unless RATIS_NOEXEC is set.
+export CLASSPATH
+if [ "${RATIS_NOEXEC}" != "" ]; then
+  "$JAVA" -Dproc_$COMMAND -XX:OnOutOfMemoryError="kill -9 %p" $HEAP_SETTINGS $RATIS_OPTS $CLASS "$@"
+else
+  exec "$JAVA" -Dproc_$COMMAND -XX:OnOutOfMemoryError="kill -9 %p" $HEAP_SETTINGS $RATIS_OPTS $CLASS "$@"
+fi
