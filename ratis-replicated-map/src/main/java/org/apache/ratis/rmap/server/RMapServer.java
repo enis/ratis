@@ -21,7 +21,6 @@
 package org.apache.ratis.rmap.server;
 
 import static org.apache.ratis.grpc.RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY;
 import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY;
 
 import java.io.IOException;
@@ -30,14 +29,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.RpcType;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.RaftGRpcService;
-import org.apache.ratis.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rmap.statemachine.RMapStateMachine;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.LogAppenderFactory;
 import org.apache.ratis.util.NetUtils;
 
 import com.google.common.base.Preconditions;
@@ -56,7 +55,8 @@ public class RMapServer {
     properties.setBoolean(RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY, false);
 
 
-    List<RaftPeer> peers = Arrays.stream(servers).map(addr -> new RaftPeer(addr, addr))
+    List<RaftPeer> peers = Arrays.stream(servers).map(
+        addr -> new RaftPeer(RaftPeerId.getRaftPeerId(addr), addr))
         .collect(Collectors.toList());
     Preconditions.checkArgument(Lists.newArrayList(servers).contains(id),
         "%s is not one of %s specified in %s", id, servers);
@@ -69,11 +69,10 @@ public class RMapServer {
         "/tmp/rmap-server-" + idForPath);
     properties.setInt(RAFT_GRPC_SERVER_PORT_KEY, port);
 
-    properties.setClass(RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
-        PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
+    RaftConfigKeys.Rpc.setType(properties::setEnum, RpcType.GRPC);
 
     raftServer = RaftServer.newBuilder()
-        .setServerId(id)
+        .setServerId(RaftPeerId.getRaftPeerId(id))
         .setPeers(peers)
         .setProperties(properties)
         .setStateMachine(new RMapStateMachine())
@@ -81,9 +80,6 @@ public class RMapServer {
   }
 
   public void start() {
-    RaftGRpcService grpcService = new RaftGRpcService(raftServer, properties);
-    grpcService.start();
-    raftServer.setServerRpc(grpcService);
     raftServer.start();
   }
 

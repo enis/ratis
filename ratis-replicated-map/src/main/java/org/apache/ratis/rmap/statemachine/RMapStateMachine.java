@@ -35,6 +35,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rmap.common.RMapNotFoundException;
 import org.apache.ratis.rmap.meta.MetaMap;
 import org.apache.ratis.rmap.protocol.ProtobufConverter;
@@ -75,7 +76,7 @@ public class RMapStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public void initialize(String id, RaftProperties properties, RaftStorage raftStorage)
+  public void initialize(RaftPeerId id, RaftProperties properties, RaftStorage raftStorage)
       throws IOException {
     super.initialize(id, properties, raftStorage);
     this.storage.init(raftStorage);

@@ -29,6 +29,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.RaftClientSenderWithGrpc;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rmap.client.Admin;
 import org.apache.ratis.rmap.client.Client;
 import org.apache.ratis.rmap.client.RMap;
@@ -42,7 +43,8 @@ public class ClientImpl implements Client {
   }
 
   private RaftClient createRaftClient(String[] servers) {
-    List<RaftPeer> peers = Arrays.stream(servers).map(addr -> new RaftPeer(addr, addr))
+    List<RaftPeer> peers = Arrays.stream(servers).map(
+        addr -> new RaftPeer(RaftPeerId.getRaftPeerId(addr), addr))
         .collect(Collectors.toList());
     RaftClientSenderWithGrpc requestSender = new RaftClientSenderWithGrpc(peers);
     RaftProperties properties = new RaftProperties();

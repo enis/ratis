@@ -17,11 +17,13 @@
  */
 package org.apache.ratis.util;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Locale;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
-
-import java.util.Locale;
 
 public class StringUtils {
   public static final String[] EMPTY_STRING_ARRAY = {};
@@ -82,5 +84,18 @@ public class StringUtils {
     } else {
       return defaultValue;
     }
+  }
+
+  /**
+   * Make a string representation of the exception.
+   * @param e The exception to stringify
+   * @return A string with exception name and call stack.
+   */
+  public static String stringifyException(Throwable e) {
+    StringWriter stm = new StringWriter();
+    PrintWriter wrt = new PrintWriter(stm);
+    e.printStackTrace(wrt);
+    wrt.close();
+    return stm.toString();
   }
 }

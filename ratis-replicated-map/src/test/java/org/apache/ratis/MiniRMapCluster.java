@@ -28,7 +28,7 @@ import org.apache.ratis.rmap.statemachine.RMapStateMachine;
 
 import com.google.common.base.Preconditions;
 
-public class MiniRMapCluster extends MiniRaftClusterWithGRpc {
+public class MiniRMapCluster {
 
   public static class Builder {
     RaftProperties properties;
@@ -50,7 +50,9 @@ public class MiniRMapCluster extends MiniRaftClusterWithGRpc {
         properties = new RaftProperties();
       }
       properties.set(MiniRaftCluster.STATEMACHINE_CLASS_KEY, RMapStateMachine.class.getName());
-      return new MiniRMapCluster(numServers, properties);
+
+      return new MiniRMapCluster(
+          MiniRaftClusterWithGRpc.FACTORY.newCluster(numServers, properties));
     }
   }
 
@@ -58,7 +60,21 @@ public class MiniRMapCluster extends MiniRaftClusterWithGRpc {
     return new Builder();
   }
 
-  MiniRMapCluster(int numServers, RaftProperties properties) throws IOException {
-    super(numServers, properties);
+  protected final MiniRaftClusterWithGRpc miniCluster;
+
+  public MiniRMapCluster(MiniRaftClusterWithGRpc miniCluster) {
+    this.miniCluster = miniCluster;
+  }
+
+  public void start() {
+    miniCluster.start();
+  }
+
+  public void shutdown() {
+    miniCluster.shutdown();
+  }
+
+  public MiniRaftClusterWithGRpc getMiniCluster() {
+    return miniCluster;
   }
 }

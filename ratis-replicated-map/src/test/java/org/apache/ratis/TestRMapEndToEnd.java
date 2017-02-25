@@ -45,7 +45,7 @@ public class TestRMapEndToEnd {
 
   private static final int NUM_SERVERS = 3;
 
-  private MiniRaftCluster cluster;
+  private MiniRMapCluster cluster;
 
   @Before
   public void setUp() throws IOException {
@@ -63,7 +63,7 @@ public class TestRMapEndToEnd {
   }
 
   private Client createClient() {
-    return ClientFactory.getClient(cluster.getPeers().stream().map(
+    return ClientFactory.getClient(cluster.getMiniCluster().getPeers().stream().map(
         p -> p.getAddress()).collect(Collectors.toList()));
   }
 
