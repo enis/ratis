@@ -46,9 +46,10 @@ message Entry {
 message Request {
     oneof RequestType {
         MultiActionRequest multi_action_request = 1;
-        CreateRMapRequest create_rmap_request = 2;
-        DeleteRMapRequest delete_rmap_request = 3;
-        ListRMapInfosRequest list_rmap_infos_request = 4;
+        ScanRequest scan_request = 2;
+        CreateRMapRequest create_rmap_request = 3;
+        DeleteRMapRequest delete_rmap_request = 4;
+        ListRMapInfosRequest list_rmap_infos_request = 5;
     }
 }
 
@@ -56,9 +57,10 @@ message Response {
     ExceptionResponse exception = 1;
     oneof ResponseType {
         MultiActionResponse multi_action_response = 2;
-        CreateRMapResponse create_rmap_response = 3;
-        DeleteRMapResponse delete_rmap_response = 4;
-        ListRMapInfosResponse list_rmap_infos_response = 5;
+        ScanResponse scan_response = 3;
+        CreateRMapResponse create_rmap_response = 4;
+        DeleteRMapResponse delete_rmap_response = 5;
+        ListRMapInfosResponse list_rmap_infos_response = 6;
     }
 }
 
@@ -130,6 +132,24 @@ message PutRequest {
 }
 
 message PutResponse {
+}
+
+message Scan {
+    bytes start_Key = 1;
+    bytes end_key = 2;
+    bool start_key_inclusive = 3;
+    bool end_key_inclusive = 4;
+    bool keys_only = 5;
+    int32 limit = 6;
+}
+
+message ScanRequest {
+    int64 rmap_id = 1;
+    Scan scan = 2;
+}
+
+message ScanResponse {
+    repeated Entry entry = 1;
 }
 
 message ExceptionResponse {

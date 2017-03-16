@@ -69,6 +69,8 @@ if [ $# = 0 ]; then
   echo "Commands:"
   echo "Some commands take arguments. Pass no args or -h for usage."
   echo "  classpath       Dump Ratis CLASSPATH"
+  echo "  rmapserver      Run RMap Server"
+  echo "  rmap            Run RMap Command Line Interface"
   echo "  version         Print the version"
   echo "  CLASSNAME       Run the class named CLASSNAME"
   exit 1
@@ -210,7 +212,7 @@ fi
 unset IFS
 
 #Set the right GC options based on the what we are running
-declare -a server_cmds=()
+declare -a server_cmds=("rmapserver")
 for cmd in ${server_cmds[@]}; do
 	if [[ $cmd == $COMMAND ]]; then
 		server=true
@@ -225,7 +227,11 @@ else
 fi
 
 # figure out which class to run
-if [ "$COMMAND" = "classpath" ] ; then
+if [ "$COMMAND" = "rmapserver" ] ; then
+  CLASS='org.apache.ratis.rmap.server.RMapServer'
+elif [ "$COMMAND" = "rmap" ] ; then
+  CLASS='org.apache.ratis.rmap.client.RMapCli'
+elif [ "$COMMAND" = "classpath" ] ; then
   echo $CLASSPATH
   exit 0
 elif [ "$COMMAND" = "version" ] ; then

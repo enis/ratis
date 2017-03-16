@@ -21,16 +21,22 @@
 package org.apache.ratis.rmap.storage;
 
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 import org.apache.ratis.rmap.common.RMapInfo;
 import org.apache.ratis.rmap.protocol.Serde;
 import org.apache.ratis.rmap.util.ReflectionUtils;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.Entry;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.PutRequest;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.WALEntry;
+
+import com.google.common.collect.Iterators;
 
 /**
  * This is the in-memory implementation for a sorted map of K to V. The concurrency model
@@ -116,6 +122,24 @@ public class RMapStore<
       return null;
     }
     return valueSerde.serialize(v);
+  }
+
+  public Iterator<Map.Entry<K,V>> scan(RMapProtos.Scan scan) {
+    K startKey = keySerde.deserialize(scan.getStartKey());
+    K endKey = keySerde.deserialize(scan.getEndKey());
+    ConcurrentNavigableMap<K, V> tailMap = null;
+
+    if (scan.getEndKey().isEmpty()) {
+      tailMap = map.tailMap(startKey, scan.getStartKeyInclusive());
+    } else {
+      tailMap = map.subMap(startKey, scan.getStartKeyInclusive(),
+          endKey, scan.getEndKeyInclusive());
+    }
+
+    int limit = scan.getLimit() <= 0 ? Integer.MAX_VALUE : scan.getLimit();
+    final Iterator<Map.Entry<K, V>> it = tailMap.entrySet().iterator();
+    return Iterators.limit(it, limit);
+
   }
 
   public String debugDump() {

@@ -121,7 +121,7 @@ public class MetaMap {
     ByteString idVal = id.toByteString();
 
     store.put(getRMapKey(info.getRmapId()), rmapInfoVal);
-    store.buildEntry(ID_KEY, idVal);
+    store.put(ID_KEY, idVal);
   }
 
   private ByteString getIdValue(long id) {

@@ -25,7 +25,9 @@ import static org.apache.ratis.rmap.meta.MetaMap.metaMapInfo;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -53,6 +55,7 @@ import org.apache.ratis.shaded.proto.rmap.RMapProtos.ListRMapInfosRequest;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.MultiActionRequest;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.PutRequest;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.RMapInfo;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.ScanRequest;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.WALEntry;
 import org.apache.ratis.statemachine.BaseStateMachine;
 import org.apache.ratis.statemachine.SimpleStateMachineStorage;
@@ -95,6 +98,9 @@ public class RMapStateMachine extends BaseStateMachine {
         case MULTI_ACTION_REQUEST:
           response = multiGet(req.getMultiActionRequest());
           break;
+        case SCAN_REQUEST:
+          response = scan(req.getScanRequest());
+          break;
         default:
           throw new IOException("Request type is not correct:" + req.getRequestTypeCase());
       }
@@ -133,9 +139,21 @@ public class RMapStateMachine extends BaseStateMachine {
     for (Action action : request.getActionList()) {
       ByteString key = action.getGetRequest().getKey();
       ByteString value = store.getAsByteString(key);
-      list.add(Entry.newBuilder().setKey(key).setValue(value).build());
+      Entry.Builder builder = Entry.newBuilder().setKey(key);
+      if (value != null) {
+        builder.setValue(value);
+      }
+      list.add(builder.build());
     }
     return ProtobufConverter.buildMultiGetResponse(list.stream());
+  }
+
+  private Response scan(ScanRequest request) throws IOException {
+    RMapStore store = getRMapStore(request.getRmapId());
+
+    Iterator<Map.Entry> it = store.scan(request.getScan());
+    return ProtobufConverter.buildScanResponse(it, store.getKeySerde(), store.getValueSerde(),
+        request.getScan().getKeysOnly());
   }
 
   @Override

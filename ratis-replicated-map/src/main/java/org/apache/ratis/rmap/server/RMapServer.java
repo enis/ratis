@@ -25,7 +25,6 @@ import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_STORAGE_D
 
 import java.io.IOException;
 import java.net.URLEncoder;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,13 +33,14 @@ import org.apache.ratis.RpcType;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.rmap.common.FileQuorumSupplier;
+import org.apache.ratis.rmap.common.QuorumSupplier;
 import org.apache.ratis.rmap.statemachine.RMapStateMachine;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.NetUtils;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 /**
  * RMap server
@@ -50,16 +50,17 @@ public class RMapServer {
   private RaftServer raftServer;
   private RaftProperties properties;
 
-  private RMapServer(String id, String[] servers) throws IOException {
+  private RMapServer(String id, QuorumSupplier quorumSupplier) throws IOException {
     properties = new RaftProperties();
     properties.setBoolean(RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY, false);
 
+    List<RaftPeer> peers = quorumSupplier.getQuorum();
+    RaftPeerId myId = RaftPeerId.getRaftPeerId(id);
 
-    List<RaftPeer> peers = Arrays.stream(servers).map(
-        addr -> new RaftPeer(RaftPeerId.getRaftPeerId(addr), addr))
-        .collect(Collectors.toList());
-    Preconditions.checkArgument(Lists.newArrayList(servers).contains(id),
-        "%s is not one of %s specified in %s", id, servers);
+    Preconditions.checkArgument(peers.stream().anyMatch(p -> p.getId().equals(myId)),
+        "%s is not one of %s specified in %s", id,
+        peers.stream().map(RaftPeer::getId).collect(Collectors.toList()),
+        FileQuorumSupplier.FILENAME);
 
     this.port = NetUtils.createSocketAddr(id).getPort();
 
@@ -72,7 +73,7 @@ public class RMapServer {
     RaftConfigKeys.Rpc.setType(properties::setEnum, RpcType.GRPC);
 
     raftServer = RaftServer.newBuilder()
-        .setServerId(RaftPeerId.getRaftPeerId(id))
+        .setServerId(myId)
         .setPeers(peers)
         .setProperties(properties)
         .setStateMachine(new RMapStateMachine())
@@ -84,15 +85,14 @@ public class RMapServer {
   }
 
   public static void main(String[] args) throws IOException {
-    if (args.length < 2) {
-      System.err.println("Usage: RMapServer <quorum> <id>");
+    if (args.length < 1) {
+      System.err.println("Usage: RMapServer <id>");
       System.exit(1);
     }
 
-    String[] servers = args[0].split(",");
-    String id = args[1];
+    String id = args[0];
 
-    RMapServer server = new RMapServer(id, servers);
+    RMapServer server = new RMapServer(id, new FileQuorumSupplier());
     server.start();
   }
 }

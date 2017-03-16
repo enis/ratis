@@ -24,13 +24,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.rmap.client.Admin;
 import org.apache.ratis.rmap.client.Client;
 import org.apache.ratis.rmap.client.ClientFactory;
 import org.apache.ratis.rmap.client.RMap;
+import org.apache.ratis.rmap.client.Scan;
 import org.apache.ratis.rmap.common.RMapInfo;
 import org.apache.ratis.rmap.common.RMapName;
 import org.apache.ratis.rmap.protocol.Serde.StringSerde;
@@ -63,8 +65,7 @@ public class TestRMapEndToEnd {
   }
 
   private Client createClient() {
-    return ClientFactory.getClient(cluster.getMiniCluster().getPeers().stream().map(
-        p -> p.getAddress()).collect(Collectors.toList()));
+    return ClientFactory.getClient(() -> cluster.getMiniCluster().getPeers());
   }
 
   private RMapInfo createRMapInfo() {
@@ -115,6 +116,108 @@ public class TestRMapEndToEnd {
         map.put("foo", "bar");
         LOG.info("Get: foo={}", map.get("foo"));
         assertEquals("bar", map.get("foo"));
+      }
+    }
+  }
+
+  @Test
+  public void testScan() throws Exception {
+    Client client = createClient();
+    RMapInfo info = createRMapInfo();
+
+    try(Admin admin = client.getAdmin()) {
+      RMapInfo newInfo = admin.createRMap(info);
+      assertEquals(info.getName(), newInfo.getName());
+
+
+
+      try(RMap<String, String> map = client.getRMap(newInfo.getId())) {
+        TreeMap<String, String> sourceMap = new TreeMap<>();
+        sourceMap.put("faa", "bar1");
+        sourceMap.put("fee", "bar2");
+        sourceMap.put("fii", "bar3");
+        sourceMap.put("foo", "bar4");
+
+        // put the entries from sourceMap to the rmap
+        for (Map.Entry<String, String> entry : sourceMap.entrySet()) {
+          map.put(entry.getKey(), entry.getValue());
+        }
+
+        System.out.println(" -- Results with default scan");
+        TreeMap<String, String> expectedMap = new TreeMap<>();
+        expectedMap.putAll(sourceMap);
+        TreeMap<String, String> resultsMap = new TreeMap<>();
+        for (Map.Entry<String, String> entry : map.scan(new Scan<>())) {
+          System.out.println(entry.getKey() + "=" + entry.getValue());
+          resultsMap.put(entry.getKey(), entry.getValue());
+        }
+        assertEquals(expectedMap, resultsMap);
+
+        System.out.println(" -- Results with startKey=fee");
+        resultsMap.clear();
+        expectedMap.clear();
+        expectedMap.putAll(sourceMap.tailMap("fee"));
+        for (Map.Entry<String, String> entry : map.scan(new Scan<String>().setStartKey("fee"))) {
+          System.out.println(entry.getKey() + "=" + entry.getValue());
+          resultsMap.put(entry.getKey(), entry.getValue());
+        }
+        assertEquals(expectedMap, resultsMap);
+
+        System.out.println(" -- Results with startKey=fee, startKeyInclusive=false");
+        resultsMap.clear();
+        expectedMap.clear();
+        expectedMap.putAll(sourceMap.tailMap("fee", false));
+        for (Map.Entry<String, String> entry : map.scan(
+            new Scan<String>().setStartKey("fee").setStartKeyInclusive(false))) {
+          System.out.println(entry.getKey() + "=" + entry.getValue());
+          resultsMap.put(entry.getKey(), entry.getValue());
+        }
+        assertEquals(expectedMap, resultsMap);
+
+        System.out.println(" -- Results with startKey=fee, startKeyInclusive=false, endKey=foo");
+        resultsMap.clear();
+        expectedMap.clear();
+        expectedMap.putAll(sourceMap.subMap("fee", false, "foo", false));
+        for (Map.Entry<String, String> entry : map.scan(
+            new Scan<String>().setStartKey("fee").setStartKeyInclusive(false)
+                .setEndKey("foo"))) {
+          System.out.println(entry.getKey() + "=" + entry.getValue());
+          resultsMap.put(entry.getKey(), entry.getValue());
+        }
+        assertEquals(expectedMap, resultsMap);
+
+        System.out.println(" -- Results with startKey=fee, startKeyInclusive=false, endKey=foo, " +
+            "endKeyInclusive=true");
+        resultsMap.clear();
+        expectedMap.clear();
+        expectedMap.putAll(sourceMap.subMap("fee", false, "foo", true));
+        for (Map.Entry<String, String> entry : map.scan(
+            new Scan<String>().setStartKey("fee").setStartKeyInclusive(false)
+                .setEndKey("foo").setEndKeyInclusive(true))) {
+          System.out.println(entry.getKey() + "=" + entry.getValue());
+          resultsMap.put(entry.getKey(), entry.getValue());
+        }
+        assertEquals(expectedMap, resultsMap);
+
+        System.out.println(" -- Results with limit");
+        resultsMap.clear();
+        expectedMap.clear();
+        expectedMap.putAll(sourceMap.subMap("faa", "foo"));
+        for (Map.Entry<String, String> entry : map.scan(new Scan<String>().setLimit(3))) {
+          System.out.println(entry.getKey() + "=" + entry.getValue());
+          resultsMap.put(entry.getKey(), entry.getValue());
+        }
+        assertEquals(expectedMap, resultsMap);
+
+        System.out.println(" -- Results with keysOnly");
+        resultsMap.clear();
+        expectedMap.clear();
+        sourceMap.forEach((k,v) -> expectedMap.put(k, ""));
+        for (Map.Entry<String, String> entry : map.scan(new Scan<String>().setKeysOnly(true))) {
+          System.out.println(entry.getKey() + "=" + entry.getValue());
+          resultsMap.put(entry.getKey(), entry.getValue());
+        }
+        assertEquals(expectedMap, resultsMap);
       }
     }
   }

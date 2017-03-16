@@ -21,9 +21,12 @@
 package org.apache.ratis.rmap.protocol;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
+import org.apache.ratis.rmap.client.Scan;
 import org.apache.ratis.rmap.common.RMapInfo;
 import org.apache.ratis.rmap.common.RMapName;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
@@ -42,6 +45,7 @@ import org.apache.ratis.shaded.proto.rmap.RMapProtos.MultiActionRequest;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.MultiActionResponse;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.PutRequest;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.PutResponse;
+import org.apache.ratis.shaded.proto.rmap.RMapProtos.ScanResponse;
 import org.apache.ratis.shaded.proto.rmap.RMapProtos.WALEntry;
 
 public class ProtobufConverter {
@@ -177,13 +181,33 @@ public class ProtobufConverter {
     entries.forEach(entry ->
       resp.addActionResponse(ActionResponse.newBuilder()
           .setGetResponse(GetResponse.newBuilder()
-              .setFound(entry.getValue() != null)
+              .setFound(entry.getValue() != null && !entry.getValue().isEmpty()) // TODO
               .setKey(entry.getKey())
               .setValue(entry.getValue()))));
 
     return new Response(
         RMapProtos.Response.newBuilder()
             .setMultiActionResponse(resp)
+            .build());
+  }
+
+  public static <K, V> Response buildScanResponse(Iterator<Map.Entry> it,
+                                                  Serde<K> keySerde, Serde<V> valueSerde,
+                                                  boolean keysOnly) {
+    ScanResponse.Builder resp = ScanResponse.newBuilder();
+
+    it.forEachRemaining(entry -> {
+      Entry.Builder entryBuilder = Entry.newBuilder()
+          .setKey(keySerde.serialize((K)entry.getKey()));
+      if (!keysOnly) {
+        entryBuilder.setValue(valueSerde.serialize((V)entry.getValue()));
+      }
+      resp.addEntry(entryBuilder);
+    });
+
+    return new Response(
+        RMapProtos.Response.newBuilder()
+            .setScanResponse(resp)
             .build());
   }
 
@@ -195,5 +219,37 @@ public class ProtobufConverter {
   public static RMapProtos.Response parseResponseFrom(ByteString buf)
       throws InvalidProtocolBufferException {
     return RMapProtos.Response.parseFrom(buf);
+  }
+
+  public static <K> RMapProtos.Scan toProto(Scan<K> scan, Serde<K> keySerde) {
+    RMapProtos.Scan.Builder builder = RMapProtos.Scan.newBuilder()
+        .setStartKeyInclusive(scan.isStartKeyInclusive())
+        .setEndKeyInclusive(scan.isEndKeyInclusive())
+        .setKeysOnly(scan.isKeysOnly())
+        .setLimit(scan.getLimit());
+
+    if (scan.getStartKey() != null) {
+      builder.setStartKey(keySerde.serialize(scan.getStartKey()));
+    }
+
+    if (scan.getEndKey() != null) {
+      builder.setEndKey(keySerde.serialize(scan.getEndKey()));
+    }
+
+    return builder.build();
+  }
+
+  public static <K> Request buildScanRequest(long rMapId, Scan<K> scan,
+                                                            Serde<K> keySerde) {
+
+    RMapProtos.ScanRequest req = RMapProtos.ScanRequest.newBuilder()
+        .setRmapId(rMapId)
+        .setScan(toProto(scan, keySerde))
+        .build();
+
+    return new Request(
+        RMapProtos.Request.newBuilder()
+            .setScanRequest(req)
+            .build());
   }
 }

@@ -22,6 +22,7 @@ package org.apache.ratis.rmap.client;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Map.Entry;
 
 /**
  * Client API for a replicated in-memory map of K to V
@@ -34,7 +35,8 @@ public interface RMap<K, V> extends Closeable {
 
   V get(K key) throws IOException;
 
+  Iterable<Entry<K, V>> scan(Scan<K> scan) throws IOException;
 
-  // TODO: iterate/scan
+  // public Iterator<K> scanKeys() { // TODO
   // TODO: checkAndPut, putIfAbsent, etc
 }

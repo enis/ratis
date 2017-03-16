@@ -17,14 +17,31 @@
  */
 package org.apache.ratis;
 
-import com.google.common.base.Preconditions;
+import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.*;
+import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
+import org.apache.ratis.server.impl.LeaderState;
+import org.apache.ratis.server.impl.RaftConfiguration;
+import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.storage.MemoryRaftLog;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.statemachine.BaseStateMachine;
@@ -37,13 +54,7 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT;
+import com.google.common.base.Preconditions;
 
 public abstract class MiniRaftCluster {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
@@ -381,7 +392,7 @@ public abstract class MiniRaftCluster {
     return servers.get(new RaftPeerId(id));
   }
 
-  public Collection<RaftPeer> getPeers() {
+  public List<RaftPeer> getPeers() {
     return getServers().stream().map(s ->
         new RaftPeer(s.getId(), s.getServerRpc().getInetSocketAddress()))
         .collect(Collectors.toList());

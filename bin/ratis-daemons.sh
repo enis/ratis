@@ -50,7 +50,9 @@ args="--hosts ${RATIS_SERVERS} --config ${RATIS_CONF_DIR} $remote_cmd"
 
 command=$2
 case $command in
-  # Add specific server types here
+  (rmapserver)
+    exec "$bin/rmap-servers.sh" $args
+    ;;
   (*)
     exec "$bin/ratis-servers.sh" $args
     ;;

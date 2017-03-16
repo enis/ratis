@@ -18,13 +18,12 @@
  *
  */
 
-package org.apache.ratis.rmap.client;
+package org.apache.ratis.rmap.common;
 
-import org.apache.ratis.rmap.client.impl.ClientImpl;
-import org.apache.ratis.rmap.common.QuorumSupplier;
+import java.util.List;
 
-public class ClientFactory {
-  public static Client getClient(QuorumSupplier quorumSupplier) {
-    return new ClientImpl(quorumSupplier);
-  }
+import org.apache.ratis.protocol.RaftPeer;
+
+public interface QuorumSupplier {
+  List<RaftPeer> getQuorum();
 }

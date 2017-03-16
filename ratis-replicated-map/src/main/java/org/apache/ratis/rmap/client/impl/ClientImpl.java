@@ -21,31 +21,27 @@
 package org.apache.ratis.rmap.client.impl;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.RaftClientSenderWithGrpc;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rmap.client.Admin;
 import org.apache.ratis.rmap.client.Client;
 import org.apache.ratis.rmap.client.RMap;
+import org.apache.ratis.rmap.common.QuorumSupplier;
 import org.apache.ratis.rmap.common.RMapInfo;
 
 public class ClientImpl implements Client {
   private RaftClient raftClient;
 
-  public ClientImpl(String[] servers) {
-    this.raftClient = createRaftClient(servers);
+  public ClientImpl(QuorumSupplier quorumSupplier) {
+    this.raftClient = createRaftClient(quorumSupplier);
   }
 
-  private RaftClient createRaftClient(String[] servers) {
-    List<RaftPeer> peers = Arrays.stream(servers).map(
-        addr -> new RaftPeer(RaftPeerId.getRaftPeerId(addr), addr))
-        .collect(Collectors.toList());
+  private RaftClient createRaftClient(QuorumSupplier quorumSupplier) {
+    List<RaftPeer> peers = quorumSupplier.getQuorum();
     RaftClientSenderWithGrpc requestSender = new RaftClientSenderWithGrpc(peers);
     RaftProperties properties = new RaftProperties();
     return RaftClient.newBuilder()

@@ -32,6 +32,15 @@ public interface Serde<T> {
 
   T deserialize(ByteString buf);
 
+  static <T> Class<?> forValues(Class<T> clazz) {
+    if (clazz.equals(String.class)) {
+      return StringSerde.class;
+    }  else if (clazz.equals(ByteString.class)) {
+      return ByteString.class;
+    }
+    return null;
+  }
+
   class StringSerde implements Serde<String> {
     @Override
     public ByteString serialize(String value) {

@@ -87,11 +87,19 @@ public class RMapInfo<
 
     public Builder withKeyClass(Class<K> keyClass) {
       this.keyClass = keyClass;
+      Class<?> serde = Serde.forValues(keyClass);
+      if (serde != null) {
+        withKeySerdeClass((Class<KS>) serde);
+      }
       return this;
     }
 
     public Builder withValueClass(Class<V> valueClass) {
       this.valueClass = valueClass;
+      Class<?> serde = Serde.forValues(valueClass);
+      if (serde != null) {
+        withValueSerdeClass((Class<VS>) serde);
+      }
       return this;
     }
 
