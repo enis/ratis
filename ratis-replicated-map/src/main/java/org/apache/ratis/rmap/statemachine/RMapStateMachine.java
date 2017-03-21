@@ -235,8 +235,8 @@ public class RMapStateMachine extends BaseStateMachine {
 
     ByteString data = trx.getSMLogEntry().get().getData();
     WALEntry walEntry = WALEntry.parseFrom(data);
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Applying WALEntry:{}", TextFormat.shortDebugString(walEntry)); // TODO: trace
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("Applying WALEntry:{}", TextFormat.shortDebugString(walEntry));
     }
 
     long rmapId = walEntry.getRmapId();
@@ -257,7 +257,9 @@ public class RMapStateMachine extends BaseStateMachine {
         break;
     }
 
-    LOG.info(store.debugDump()); // TODO: remove
+    if (LOG.isTraceEnabled()) {
+      LOG.trace(store.debugDump()); // TODO: remove
+    }
 
     return super.applyTransactionSerial(trx);
   }

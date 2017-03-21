@@ -24,6 +24,10 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.ratis.rmap.common.FileQuorumSupplier;
 import org.apache.ratis.rmap.common.RMapInfo;
@@ -40,6 +44,7 @@ public class RMapCli {
     System.err.println("  create-rmap <rmap_name> <key_class> <value_class>");
     System.err.println("  list-rmaps [pattern]");
     System.err.println("  put <rmap_name> <key> <value>");
+    System.err.println("  put-test <rmap_name> <num_threads> <num_keys_per_thread>");
     System.err.println("  get <rmap_name> <key>");
     System.err.println("  scan <rmap_name> <start_key> <end_key>");
     // TODO: scan
@@ -96,6 +101,53 @@ public class RMapCli {
     return 0;
   }
 
+  // TODO: move this to a different tool than the CLI
+  private int putTest(String[] args) throws IOException, InterruptedException {
+    if (args.length < 3) {
+      return printUsage();
+    }
+
+    long rmapId = Long.parseLong(args[0]);
+    int numThreads = Integer.parseInt(args[1]);
+    long numKeysPerThread = Long.parseLong(args[2]);
+    long totalKeys = (numThreads * numKeysPerThread);
+
+    ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+    AtomicReference<IOException> firstException = new AtomicReference<>(null);
+
+    System.out.println("Starting " + numThreads + " threads.");
+    System.out.println("Writing " + numKeysPerThread + " rows per thread, total="
+        + totalKeys);
+    long startNano = System.nanoTime();
+    for (int t = 0; t < numThreads; t++) {
+      int finalT = t;
+      executor.submit( () -> {
+        try (Client client = ClientFactory.getClient(new FileQuorumSupplier());
+             RMap<String, String> rmap = client.getRMap(rmapId)) {
+          for (long i = 0; i < numKeysPerThread; i++) {
+            rmap.put("thread-" + finalT + "-row-" + i, "value" + i);
+          }
+        } catch (IOException ex) {
+          firstException.compareAndSet(null, ex);
+        }
+      });
+    }
+
+    executor.shutdown();
+    executor.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+    if (firstException.get() != null) {
+      throw firstException.get();
+    }
+
+    long duration = System.nanoTime() - startNano;
+    long seconds = Math.max(1, TimeUnit.NANOSECONDS.toSeconds(duration));
+    System.out.println("Written " + totalKeys + " in "
+        + seconds + " seconds");
+    System.out.println("Throughput: " + (totalKeys / seconds) + " keys/s");
+
+    return 0;
+  }
+
   private int get(String[] args) throws IOException {
     if (args.length < 2) {
       return printUsage();
@@ -130,7 +182,7 @@ public class RMapCli {
       }
 
       for (Map.Entry<String,String> entry : rmap.scan(scan)) {
-        System.out.println(entry.getKey() + "=" + entry.getValue());
+        System.out.println(entry.getKey() + " = " + entry.getValue());
       }
     }
 
@@ -149,6 +201,8 @@ public class RMapCli {
         return listRMaps(Arrays.copyOfRange(args, 1, args.length));
       case "put":
         return put(Arrays.copyOfRange(args, 1, args.length));
+      case "put-test":
+        return putTest(Arrays.copyOfRange(args, 1, args.length));
       case "get":
         return get(Arrays.copyOfRange(args, 1, args.length));
       case "scan":
