@@ -25,7 +25,6 @@ import static org.apache.ratis.rmap.meta.MetaMap.metaMapInfo;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -125,8 +124,8 @@ public class RMapStateMachine extends BaseStateMachine {
         }
         return ProtobufConverter.buildListRMapInfosResponse(Lists.newArrayList(info));
       case NAME_PATTERN:
-        // TODO: list rmap infos by pattern
-        return null;
+        List<RMapInfo> list = metaMap.listRMaps(req.getNamePattern());
+        return ProtobufConverter.buildListRMapInfosResponse(list);
       default:
         throw new IOException("Unknown request type");
     }
@@ -151,7 +150,7 @@ public class RMapStateMachine extends BaseStateMachine {
   private Response scan(ScanRequest request) throws IOException {
     RMapStore store = getRMapStore(request.getRmapId());
 
-    Iterator<Map.Entry> it = store.scan(request.getScan());
+    Iterable<Map.Entry> it = store.scan(request.getScan());
     return ProtobufConverter.buildScanResponse(it, store.getKeySerde(), store.getValueSerde(),
         request.getScan().getKeysOnly());
   }

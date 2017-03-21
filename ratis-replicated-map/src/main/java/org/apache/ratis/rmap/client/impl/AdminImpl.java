@@ -85,7 +85,7 @@ class AdminImpl implements Admin {
 
   @Override
   public List<RMapInfo> listRMapInfos() throws IOException {
-    return listRMapInfos(null);
+    return listRMapInfos("");
   }
 
   @Override

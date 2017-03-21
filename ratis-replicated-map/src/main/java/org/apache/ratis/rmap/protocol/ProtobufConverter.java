@@ -21,7 +21,6 @@
 package org.apache.ratis.rmap.protocol;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -191,19 +190,19 @@ public class ProtobufConverter {
             .build());
   }
 
-  public static <K, V> Response buildScanResponse(Iterator<Map.Entry> it,
+  public static <K, V> Response buildScanResponse(Iterable<Map.Entry> it,
                                                   Serde<K> keySerde, Serde<V> valueSerde,
                                                   boolean keysOnly) {
     ScanResponse.Builder resp = ScanResponse.newBuilder();
 
-    it.forEachRemaining(entry -> {
+    for(Map.Entry entry : it) {
       Entry.Builder entryBuilder = Entry.newBuilder()
           .setKey(keySerde.serialize((K)entry.getKey()));
       if (!keysOnly) {
         entryBuilder.setValue(valueSerde.serialize((V)entry.getValue()));
       }
       resp.addEntry(entryBuilder);
-    });
+    }
 
     return new Response(
         RMapProtos.Response.newBuilder()

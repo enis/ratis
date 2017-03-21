@@ -114,7 +114,6 @@ public class RMapImpl<K, V> implements RMap<K, V> {
 
     return () -> new Iterator<Entry<K, V>>() {
       Iterator<RMapProtos.Entry> it = scanResponse.getEntryList().iterator();
-
       @Override
       public boolean hasNext() {
         return it.hasNext();

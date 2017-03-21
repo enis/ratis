@@ -24,6 +24,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -87,6 +88,19 @@ public class TestRMapEndToEnd {
     try(Admin admin = client.getAdmin()) {
       RMapInfo newInfo = admin.createRMap(info);
       assertEquals(info.getName(), newInfo.getName());
+    }
+  }
+
+  @Test
+  public void testListRMaps() throws IOException {
+    Client client = createClient();
+    RMapInfo info = createRMapInfo();
+
+    try(Admin admin = client.getAdmin()) {
+      RMapInfo newInfo = admin.createRMap(info);
+      List<RMapInfo> infos = admin.listRMapInfos();
+      assertEquals(2, infos.size());
+      assertEquals(infos.get(1).getName(), newInfo.getName());
     }
   }
 

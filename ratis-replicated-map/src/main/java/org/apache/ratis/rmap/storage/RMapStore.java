@@ -124,7 +124,7 @@ public class RMapStore<
     return valueSerde.serialize(v);
   }
 
-  public Iterator<Map.Entry<K,V>> scan(RMapProtos.Scan scan) {
+  public Iterable<Map.Entry<K,V>> scan(RMapProtos.Scan scan) {
     K startKey = keySerde.deserialize(scan.getStartKey());
     K endKey = keySerde.deserialize(scan.getEndKey());
     ConcurrentNavigableMap<K, V> tailMap = null;
@@ -137,9 +137,8 @@ public class RMapStore<
     }
 
     int limit = scan.getLimit() <= 0 ? Integer.MAX_VALUE : scan.getLimit();
-    final Iterator<Map.Entry<K, V>> it = tailMap.entrySet().iterator();
-    return Iterators.limit(it, limit);
-
+    final Iterator<Map.Entry<K, V>> it = Iterators.limit(tailMap.entrySet().iterator(), limit);
+    return () -> it;
   }
 
   public String debugDump() {

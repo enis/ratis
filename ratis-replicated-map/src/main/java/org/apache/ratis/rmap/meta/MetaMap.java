@@ -21,6 +21,10 @@
 package org.apache.ratis.rmap.meta;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.apache.ratis.rmap.common.RMapInfo;
 import org.apache.ratis.rmap.common.RMapName;
@@ -144,6 +148,13 @@ public class MetaMap {
     return RMAP_KEY + "/" + id + "/" + INFO;
   }
 
+  /**
+   * @return max rmap key, exclusive
+   */
+  private String getRMapEndKey() {
+    return RMAP_KEY + '0'; //0 is following /
+  }
+
   private void insertRMap(RMapInfo info) {
     RMapProtos.RMapInfo proto = ProtobufConverter.toProto(info);
     store.put(getRMapKey(proto.getRmapId()), proto.toByteString());
@@ -155,6 +166,29 @@ public class MetaMap {
       return null;
     }
     return RMapProtos.RMapInfo.parseFrom(str);
+  }
+
+  public List<RMapProtos.RMapInfo> listRMaps(String namePattern) throws IOException {
+    // TODO: index the rmaps by name, so that we can do a shortcut lookup
+    // if the pattern is just the name of the rmap
+
+    RMapProtos.Scan scan = RMapProtos.Scan.newBuilder()
+        .setStartKey(keySerde.serialize(getRMapKey(META_MAP_ID)))
+        .setStartKeyInclusive(true)
+        .setEndKey(keySerde.serialize(getRMapEndKey()))
+        .setEndKeyInclusive(false)
+        .build();
+
+    Pattern pattern = Pattern.compile(namePattern);
+    List<RMapProtos.RMapInfo> ret = new ArrayList<>();
+    for (Map.Entry<String, ByteString> entry: store.scan(scan)) {
+      RMapProtos.RMapInfo info = RMapProtos.RMapInfo.parseFrom(entry.getValue());
+      if (namePattern.isEmpty() || pattern.matcher(info.getName()).matches()) {
+        ret.add(info);
+      }
+    }
+
+    return ret;
   }
 
   public RMapStore<String, ByteString, StringSerde, ByteStringSerde, ?> getStore() {
