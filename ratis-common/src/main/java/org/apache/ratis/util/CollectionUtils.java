@@ -24,12 +24,12 @@ import java.util.Iterator;
 import java.util.Objects;
 import java.util.function.Function;
 
-public class Iterables {
+public interface CollectionUtils {
   /**
    *  @return the next element in the iteration right after the given element;
    *          if the given element is not in the iteration, return the first one
    */
-  public static <T> T next(final T given, final Iterable<T> iteration) {
+  static <T> T next(final T given, final Iterable<T> iteration) {
     Objects.requireNonNull(given, "given == null");
     final Iterator<T> i = Objects.requireNonNull(iteration, "iteration == null").iterator();
     Preconditions.assertTrue(i.hasNext(), "iteration is empty.");
@@ -45,7 +45,7 @@ public class Iterables {
     return first;
   }
 
-  public static <INPUT, OUTPUT> Iterable<OUTPUT> as(
+  static <INPUT, OUTPUT> Iterable<OUTPUT> as(
       Iterable<INPUT> iteration, Function<INPUT, OUTPUT> converter) {
     return () -> new Iterator<OUTPUT>() {
       final Iterator<INPUT> i = iteration.iterator();

@@ -48,7 +48,7 @@ import org.apache.ratis.statemachine.BaseStateMachine;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.Iterables;
+import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReflectionUtils;
@@ -161,7 +161,7 @@ public abstract class MiniRaftCluster {
 
   public MiniRaftCluster initServers() {
     if (servers.isEmpty()) {
-      putNewServers(Iterables.as(conf.getPeers(), RaftPeer::getId), true);
+      putNewServers(CollectionUtils.as(conf.getPeers(), RaftPeer::getId), true);
     }
     return this;
   }
@@ -262,7 +262,7 @@ public abstract class MiniRaftCluster {
 
     // create and add new RaftServers
     final Collection<RaftServerImpl> newServers = putNewServers(
-        Iterables.as(Arrays.asList(ids), RaftPeerId::new), true);
+        CollectionUtils.as(Arrays.asList(ids), RaftPeerId::new), true);
     newServers.forEach(s -> startServer(s, startNewPeer));
 
     final Collection<RaftPeer> newPeers = toRaftPeers(newServers);

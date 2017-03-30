@@ -38,6 +38,10 @@ import org.apache.ratis.conf.RaftProperties;
  */
 public class ReflectionUtils {
 
+  private ReflectionUtils() {
+    // Utility class, cannot instantiate
+  }
+
   private static final Class<?>[] EMPTY_CLASSES = {};
 
   /**

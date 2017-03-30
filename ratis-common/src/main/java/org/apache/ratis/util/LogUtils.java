@@ -27,9 +27,9 @@ import org.slf4j.Logger;
 /**
  * Logging (as in log4j) related utility methods.
  */
-public class LogUtils {
+public interface LogUtils {
 
-  public static void setLogLevel(Logger logger, Level level) {
+  static void setLogLevel(Logger logger, Level level) {
     LogManager.getLogger(logger.getName()).setLevel(level);
   }
 

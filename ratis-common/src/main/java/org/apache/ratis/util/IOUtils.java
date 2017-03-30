@@ -34,24 +34,24 @@ import org.slf4j.Logger;
 /**
  * IO related utility methods.
  */
-public class IOUtils {
-  public static InterruptedIOException toInterruptedIOException(
+public interface IOUtils {
+  static InterruptedIOException toInterruptedIOException(
       String message, InterruptedException e) {
     final InterruptedIOException iioe = new InterruptedIOException(message);
     iioe.initCause(e);
     return iioe;
   }
 
-  public static IOException asIOException(Throwable t) {
+  static IOException asIOException(Throwable t) {
     return t instanceof IOException? (IOException)t : new IOException(t);
   }
 
-  public static IOException toIOException(ExecutionException e) {
+  static IOException toIOException(ExecutionException e) {
     final Throwable cause = e.getCause();
     return cause != null? asIOException(cause): new IOException(e);
   }
 
-  public static void readFully(InputStream in, int buffSize) throws IOException {
+  static void readFully(InputStream in, int buffSize) throws IOException {
     final byte buf[] = new byte[buffSize];
     for(int bytesRead = in.read(buf); bytesRead >= 0; ) {
       bytesRead = in.read(buf);
@@ -68,7 +68,7 @@ public class IOUtils {
    * @throws IOException if it could not read requested number of bytes
    * for any reason (including EOF)
    */
-  public static void readFully(InputStream in, byte[] buf, int off, int len)
+  static void readFully(InputStream in, byte[] buf, int off, int len)
       throws IOException {
     for(int toRead = len; toRead > 0; ) {
       final int ret = in.read(buf, off, toRead);
@@ -89,7 +89,7 @@ public class IOUtils {
    * @param offset           The offset in the file to start writing at
    * @throws IOException     On I/O error
    */
-  public static void writeFully(FileChannel fc, ByteBuffer buf, long offset)
+  static void writeFully(FileChannel fc, ByteBuffer buf, long offset)
       throws IOException {
     do {
       offset += fc.write(buf, offset);
@@ -103,7 +103,7 @@ public class IOUtils {
    * @throws IOException if it could not skip requested number of bytes
    * for any reason (including EOF)
    */
-  public static void skipFully(InputStream in, long len) throws IOException {
+  static void skipFully(InputStream in, long len) throws IOException {
     long amt = len;
     while (amt > 0) {
       long ret = in.skip(amt);
@@ -128,7 +128,7 @@ public class IOUtils {
    * @param log the log to record problems to at debug level. Can be null.
    * @param closeables the objects to close
    */
-  public static void cleanup(Logger log, Closeable... closeables) {
+  static void cleanup(Logger log, Closeable... closeables) {
     for (Closeable c : closeables) {
       if (c != null) {
         try {

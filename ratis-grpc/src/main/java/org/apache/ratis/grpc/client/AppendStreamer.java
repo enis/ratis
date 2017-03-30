@@ -18,7 +18,7 @@
 package org.apache.ratis.grpc.client;
 
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.util.Iterables;
+import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.grpc.GrpcConfigKeys;
@@ -115,7 +115,7 @@ public class AppendStreamer implements Closeable {
       if (oldLeader == null) {
         leaderId = peers.keySet().iterator().next();
       } else {
-        leaderId = Iterables.next(oldLeader, peers.keySet());
+        leaderId = CollectionUtils.next(oldLeader, peers.keySet());
       }
     }
     LOG.debug("{} switches leader from {} to {}. suggested leader: {}", this,

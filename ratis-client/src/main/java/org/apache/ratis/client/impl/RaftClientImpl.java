@@ -20,7 +20,7 @@ package org.apache.ratis.client.impl;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.util.IOUtils;
-import org.apache.ratis.util.Iterables;
+import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.protocol.*;
 
@@ -159,7 +159,7 @@ final class RaftClientImpl implements RaftClient {
         newLeader, ioe);
     final RaftPeerId oldLeader = request.getServerId();
     if (newLeader == null && oldLeader.equals(leaderId)) {
-      newLeader = Iterables.next(oldLeader, Iterables.as(peers, RaftPeer::getId));
+      newLeader = CollectionUtils.next(oldLeader, CollectionUtils.as(peers, RaftPeer::getId));
     }
     if (newLeader != null && oldLeader.equals(leaderId)) {
       LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);

@@ -24,6 +24,11 @@ package org.apache.ratis.util;
  * Platform and architecture related utility methods.
  */
 public class PlatformUtils {
+
+  private PlatformUtils() {
+    // Utility class, cannot instantiate
+  }
+
   public static final boolean PPC_64
       = System.getProperties().getProperty("os.arch").contains("ppc64");
   /**
